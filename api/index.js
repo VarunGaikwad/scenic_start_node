@@ -1,9 +1,18 @@
-const { auth } = require("../middleware");
+const serverless = require("serverless-http");
+const app = require("../app");
+const { connectDB, initDB } = require("../db");
 
-const apiRoutes = require("express").Router();
+let initialized = false;
 
-apiRoutes.use("/unauth", require("./unauth"));
+async function bootstrap() {
+  if (!initialized) {
+    await connectDB();
+    await initDB();
+    initialized = true;
+  }
+}
 
-apiRoutes.use("/auth", auth, require("./auth"));
-
-module.exports = apiRoutes;
+module.exports = async (req, res) => {
+  await bootstrap();
+  return serverless(app)(req, res);
+};
