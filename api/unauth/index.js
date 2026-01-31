@@ -6,4 +6,6 @@ unauthRoutes.use("/register", require("./register"));
 
 unauthRoutes.use("/forgot-password", require("./forgetPassword"));
 
+unauthRoutes.use("/email-exists", require("./emailExists"));
+
 module.exports = unauthRoutes;

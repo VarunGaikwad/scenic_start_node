@@ -1,78 +1,70 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { connectDB } = require("../../db");
 
 const registerRouter = require("express").Router();
 
-registerRouter.post("/", async (req, res) => {
-  const { email, password, name } = req.body;
+registerRouter.post("/register", async (req, res) => {
+  const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({
-      message: "Email and password are required",
-    });
+  // Hard validation — registration is explicit
+  if (typeof email !== "string" || typeof password !== "string") {
+    return res.status(400).json({ message: "Email and password required" });
   }
 
   if (password.length < 8) {
-    return res.status(400).json({
-      message: "Password must be at least 8 characters",
-    });
+    return res
+      .status(400)
+      .json({ message: "Password must be at least 8 characters" });
   }
+
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
 
   try {
     const db = await connectDB();
 
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Check if user already exists
-    const existingUser = await db
-      .collection("users")
-      .findOne({ email: normalizedEmail });
-
-    if (existingUser) {
-      return res.status(409).json({
-        message: "User already exists",
-      });
-    }
-
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = {
+    const newUser = {
       email: normalizedEmail,
       passwordHash,
-      name: name?.trim() || null,
-      status: "active", // or "pending" if you add email verification later
-      emailVerified: false,
+      status: "active", // change later if you add email verification
+      name: null,
       createdAt: new Date(),
-      updatedAt: null,
-      lastLoginAt: null,
+      lastLoginAt: new Date(),
     };
 
-    const result = await db.collection("users").insertOne(user);
+    const result = await db.collection("users").insertOne(newUser);
 
-    // Never send passwordHash back
-    delete user.passwordHash;
+    const token = jwt.sign(
+      {
+        sub: result.insertedId.toString(),
+        email: normalizedEmail,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" },
+    );
 
-    res.status(201).json({
-      message: "User registered successfully",
+    return res.status(201).json({
+      token,
       user: {
         _id: result.insertedId,
-        ...user,
+        email: normalizedEmail,
+        name: null,
       },
     });
   } catch (err) {
-    console.error(err);
-
-    // Duplicate key safety net (race condition)
+    // Duplicate email (unique index required!)
     if (err.code === 11000) {
-      return res.status(409).json({
-        message: "User already exists",
-      });
+      return res.status(409).json({ message: "Email already registered" });
     }
 
-    res.status(500).json({
-      message: "Internal server error",
-    });
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
