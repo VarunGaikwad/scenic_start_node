@@ -1,9 +1,7 @@
 const { auth } = require("../middleware");
+const router = require("express").Router();
 
-const apiRoutes = require("express").Router();
+router.use("/unauth", require("./unauth"));
+router.use("/auth", auth, require("./auth"));
 
-apiRoutes.use("/unauth", require("./unauth"));
-
-apiRoutes.use("/auth", auth, require("./auth"));
-
-module.exports = apiRoutes;
+module.exports = router;

@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const serverless = require("serverless-http");
 
-const apiRoutes = require("./api");
+const apiRoutes = require("./routes");
 
 const app = express();
 
@@ -13,20 +13,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* ---------- ROUTES ---------- */
+/* ---------- BASE ROUTES ---------- */
 app.get("/", (_req, res) => {
-  res.send("Hello World!");
+  res.send("API is running");
 });
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "UP",
-    uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
 });
 
-app.use("/api", apiRoutes);
+/* ---------- API ROUTES ---------- */
+app.use("/", apiRoutes);
 
 /* ---------- EXPORT ---------- */
 module.exports = serverless(app);
