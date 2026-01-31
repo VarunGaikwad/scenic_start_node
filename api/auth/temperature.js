@@ -1,47 +1,79 @@
-const { default: axios } = require("axios");
-
+const axios = require("axios");
 const temperatureRouter = require("express").Router();
 
+/**
+ * @swagger
+ * /api/auth/temperature:
+ *   get:
+ *     summary: Get current temperature based on client IP
+ *     tags:
+ *       - Utilities
+ *     security:
+ *       - bearerAuth: []
+ */
 temperatureRouter.get("/", async (req, res) => {
   let clientIP =
-    req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress;
+    req.headers["x-forwarded-for"]?.split(",")[0] ||
+    req.socket.remoteAddress;
 
-  if (clientIP === "::1") {
+  // Local dev fallback
+  if (clientIP === "::1" || clientIP === "127.0.0.1") {
     clientIP = "108.181.48.97";
+  }
+
+  if (!process.env.OPENWEATHER_API) {
+    return res.status(500).json({ message: "Weather service not configured" });
   }
 
   try {
     const latlongData = await fetchLatLong(clientIP);
+
+    if (!latlongData?.latitude || !latlongData?.longitude) {
+      return res.status(500).json({ message: "Unable to resolve location" });
+    }
+
     const weatherData = await fetchWeatherInfo(latlongData);
 
-    return res.status(200).json(weatherData);
+    // Return only what you actually need
+    return res.status(200).json({
+      location: weatherData.name,
+      temperature: weatherData.main?.temp,
+      feelsLike: weatherData.main?.feels_like,
+      humidity: weatherData.main?.humidity,
+      description: weatherData.weather?.[0]?.description,
+    });
   } catch (err) {
-    console.log(err);
+    console.error("Temperature error:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch temperature data" });
   }
 });
 
 async function fetchLatLong(IP) {
-  try {
-    const { data } = await axios.get(`https://ipwhois.app/json/${IP}`, {
-      proxy: false,
-    });
+  const { data } = await axios.get(`https://ipwhois.app/json/${IP}`, {
+    timeout: 5000,
+    proxy: false,
+  });
 
-    return data;
-  } catch (err) {
-    throw err;
-  }
+  return data;
 }
 
 async function fetchWeatherInfo({ latitude, longitude }) {
-  try {
-    const { data } = await axios.get(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${process.env.OPENWEATHER_API}&units=metric`,
-    );
+  const { data } = await axios.get(
+    "https://api.openweathermap.org/data/2.5/weather",
+    {
+      params: {
+        lat: latitude,
+        lon: longitude,
+        appid: process.env.OPENWEATHER_API,
+        units: "metric",
+      },
+      timeout: 5000,
+    },
+  );
 
-    return data;
-  } catch (err) {
-    throw err;
-  }
+  return data;
 }
 
 module.exports = temperatureRouter;

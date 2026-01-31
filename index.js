@@ -1,18 +1,33 @@
 require("dotenv").config();
 const express = require("express");
-const apiRoutes = require("./api");
-const app = express();
-const { connectDB, initDB } = require("./db");
-const PORT = process.env.PORT || 3000;
+const swaggerUi = require("swagger-ui-express");
 
+const apiRoutes = require("./api");
+const swaggerSpec = require("./swagger");
+const { connectDB, initDB } = require("./db");
+
+const app = express();
+const PORT = process.env.PORT || 9091;
+
+/* ---------- MIDDLEWARE ---------- */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/* ---------- ROUTES ---------- */
 app.get("/", (_req, res) => {
   res.send("Hello World!");
 });
 
-app.get("/health", (req, res) => {
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     responses:
+ *       200:
+ *         description: Server is running
+ */
+app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "UP",
     uptime: process.uptime(),
@@ -22,11 +37,25 @@ app.get("/health", (req, res) => {
 
 app.use("/api", apiRoutes);
 
-(async () => {
-  await connectDB();
-  await initDB();
+/* ---------- SWAGGER (DEV ONLY) ---------- */
+if (process.env.NODE_ENV !== "production") {
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
-  app.listen(PORT, () => {
-    console.log(`http://localhost:${PORT} is listening`);
-  });
+/* ---------- BOOTSTRAP ---------- */
+(async () => {
+  try {
+    await connectDB();
+    await initDB();
+
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`Swagger at http://localhost:${PORT}/api-docs`);
+      }
+    });
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
 })();

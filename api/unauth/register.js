@@ -4,10 +4,44 @@ const { connectDB } = require("../../db");
 
 const registerRouter = require("express").Router();
 
-registerRouter.post("/register", async (req, res) => {
+/**
+ * @swagger
+ * /api/unauth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: StrongPass123
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Invalid input
+ *       409:
+ *         description: Email already registered
+ *       500:
+ *         description: Internal server error
+ */
+registerRouter.post("/", async (req, res) => {
   const { email, password } = req.body;
 
-  // Hard validation — registration is explicit
+  // Hard validation
   if (typeof email !== "string" || typeof password !== "string") {
     return res.status(400).json({ message: "Email and password required" });
   }
@@ -27,18 +61,25 @@ registerRouter.post("/register", async (req, res) => {
   try {
     const db = await connectDB();
 
+    // OPTIONAL but recommended: pre-check
+    const existing = await db
+      .collection("users")
+      .findOne({ email: normalizedEmail });
+
+    if (existing) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const newUser = {
+    const result = await db.collection("users").insertOne({
       email: normalizedEmail,
       passwordHash,
-      status: "active", // change later if you add email verification
+      status: "active",
       name: null,
       createdAt: new Date(),
       lastLoginAt: new Date(),
-    };
-
-    const result = await db.collection("users").insertOne(newUser);
+    });
 
     const token = jwt.sign(
       {
@@ -46,7 +87,7 @@ registerRouter.post("/register", async (req, res) => {
         email: normalizedEmail,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" },
+      { expiresIn: "15m" }
     );
 
     return res.status(201).json({
@@ -58,7 +99,6 @@ registerRouter.post("/register", async (req, res) => {
       },
     });
   } catch (err) {
-    // Duplicate email (unique index required!)
     if (err.code === 11000) {
       return res.status(409).json({ message: "Email already registered" });
     }

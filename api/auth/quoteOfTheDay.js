@@ -4,48 +4,60 @@ const { connectDB } = require("../../db");
 const motivationQuotesRouter = express.Router();
 
 /**
- * 🔓 PUBLIC
- * Quote of the Day (deterministic)
+ * @swagger
+ * /api/auth/quote-of-the-day:
+ *   get:
+ *     summary: Get deterministic quote of the day
+ *     description: Returns the same quote for all users on the same UTC day
+ *     tags:
+ *       - Motivation
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Quote of the day
+ *       404:
+ *         description: No quotes available
  */
-motivationQuotesRouter.get("/quote-of-the-day", async (req, res) => {
+motivationQuotesRouter.get("/", async (req, res) => {
   try {
     const db = await connectDB();
+    const col = db.collection("motivation_quotes");
 
-    const quotes = await db
-      .collection("motivation_quotes")
-      .find({})
-      .sort({ createdAt: 1 }) // oldest → newest
-      .toArray();
-
-    if (quotes.length === 0) {
+    const count = await col.countDocuments();
+    if (count === 0) {
       return res.status(404).json({ message: "No quotes available" });
     }
 
     const today = new Date();
-
     const key =
       today.getUTCFullYear() * 10000 +
       (today.getUTCMonth() + 1) * 100 +
       today.getUTCDate();
 
-    const index = key % quotes.length;
+    const index = key % count;
 
-    const quote = quotes[index];
+    const quote = await col
+      .find({})
+      .sort({ createdAt: 1 })
+      .skip(index)
+      .limit(1)
+      .next();
 
-    res.json({
+    return res.json({
       date: today.toISOString().slice(0, 10),
       text: quote.text,
       author: quote.author || "Unknown",
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
 /**
- * 🔐 SECRET ADMIN API
- * Add quote (max 31, FIFO eviction)
+ * @swagger-ignore
+ * 🔐 SECRET ADMIN API (do not expose in docs)
  */
 motivationQuotesRouter.post("/secret/add", async (req, res) => {
   const secret = req.headers["x-admin-secret"];
@@ -72,9 +84,7 @@ motivationQuotesRouter.post("/secret/add", async (req, res) => {
       createdAt: new Date(),
     });
 
-    // 🔥 Enforce MAX = 31
     const count = await col.countDocuments();
-
     if (count > 31) {
       const excess = count - 31;
 
@@ -84,19 +94,19 @@ motivationQuotesRouter.post("/secret/add", async (req, res) => {
         .limit(excess)
         .toArray();
 
-      const ids = oldQuotes.map((q) => q._id);
-
-      await col.deleteMany({ _id: { $in: ids } });
+      await col.deleteMany({
+        _id: { $in: oldQuotes.map((q) => q._id) },
+      });
     }
 
-    res.status(201).json({ message: "Quote added" });
+    return res.status(201).json({ message: "Quote added" });
   } catch (err) {
     if (err.code === 11000) {
       return res.status(409).json({ message: "Duplicate quote" });
     }
 
     console.error(err);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 

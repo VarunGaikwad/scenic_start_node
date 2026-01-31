@@ -4,10 +4,53 @@ const { ObjectId } = require("mongodb");
 const birthdayRemindersRouter = require("express").Router();
 
 /**
- * ------------------------------------
- * POST create birthday reminder
- * ------------------------------------
+ * @swagger
+ * /api/auth/birthday-reminders:
+ *   post:
+ *     summary: Create a birthday reminder
+ *     tags:
+ *       - Birthday Reminders
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - birthDate
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Doe
+ *               birthDate:
+ *                 type: string
+ *                 format: date
+ *                 example: 1995-02-28
+ *               note:
+ *                 type: string
+ *                 example: College friend
+ *               remindBeforeDays:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 30
+ *                 example: 1
+ *               isActive:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: Birthday reminder created
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       409:
+ *         description: Duplicate reminder
  */
+
 birthdayRemindersRouter.post("/", async (req, res) => {
   const {
     name,
@@ -29,9 +72,9 @@ birthdayRemindersRouter.post("/", async (req, res) => {
   }
 
   if (
+    !Number.isInteger(remindBeforeDays) ||
     remindBeforeDays < 0 ||
-    remindBeforeDays > 30 ||
-    !Number.isInteger(remindBeforeDays)
+    remindBeforeDays > 30
   ) {
     return res.status(400).json({
       message: "remindBeforeDays must be an integer between 0 and 30",
@@ -41,10 +84,15 @@ birthdayRemindersRouter.post("/", async (req, res) => {
   try {
     const db = await connectDB();
 
+    const birthMonth = parsedDate.getUTCMonth() + 1;
+    const birthDay = parsedDate.getUTCDate();
+
     const doc = {
       userId: new ObjectId(req.user.sub),
       name: name.trim(),
       birthDate: parsedDate,
+      birthMonth,
+      birthDay,
       note: note?.trim() || null,
       remindBeforeDays,
       isActive: Boolean(isActive),
@@ -74,11 +122,52 @@ birthdayRemindersRouter.post("/", async (req, res) => {
   }
 });
 
+
 /**
- * ------------------------------------
- * PATCH update birthday reminder
- * ------------------------------------
+ * @swagger
+ * /api/auth/birthday-reminders/{id}:
+ *   patch:
+ *     summary: Update a birthday reminder
+ *     tags:
+ *       - Birthday Reminders
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               birthDate:
+ *                 type: string
+ *                 format: date
+ *               note:
+ *                 type: string
+ *               remindBeforeDays:
+ *                 type: integer
+ *                 minimum: 0
+ *                 maximum: 30
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Birthday reminder updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Reminder not found
  */
+
 birthdayRemindersRouter.patch("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, birthDate, note, remindBeforeDays, isActive } = req.body;
@@ -113,7 +202,10 @@ birthdayRemindersRouter.patch("/:id", async (req, res) => {
       if (Number.isNaN(parsedDate.getTime())) {
         return res.status(400).json({ message: "Invalid birthDate" });
       }
+
       update.birthDate = parsedDate;
+      update.birthMonth = parsedDate.getUTCMonth() + 1;
+      update.birthDay = parsedDate.getUTCDate();
     }
 
     if (note !== undefined) {
@@ -160,10 +252,45 @@ birthdayRemindersRouter.patch("/:id", async (req, res) => {
 });
 
 /**
- * ------------------------------------
- * GET all birthday reminders
- * ------------------------------------
+ * @swagger
+ * /api/auth/birthday-reminders:
+ *   get:
+ *     summary: Get all birthday reminders
+ *     tags:
+ *       - Birthday Reminders
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of birthday reminders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   birthDate:
+ *                     type: string
+ *                     format: date
+ *                   birthMonth:
+ *                     type: integer
+ *                   birthDay:
+ *                     type: integer
+ *                   note:
+ *                     type: string
+ *                   remindBeforeDays:
+ *                     type: integer
+ *                   isActive:
+ *                     type: boolean
+ *       401:
+ *         description: Unauthorized
  */
+
 birthdayRemindersRouter.get("/", async (req, res) => {
   try {
     const db = await connectDB();
@@ -182,10 +309,29 @@ birthdayRemindersRouter.get("/", async (req, res) => {
 });
 
 /**
- * ------------------------------------
- * DELETE birthday reminder
- * ------------------------------------
+ * @swagger
+ * /api/auth/birthday-reminders/{id}:
+ *   delete:
+ *     summary: Delete a birthday reminder
+ *     tags:
+ *       - Birthday Reminders
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Birthday reminder deleted
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Reminder not found
  */
+
 birthdayRemindersRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
 

@@ -1,6 +1,40 @@
 const { connectDB } = require("../../db");
 const emailExistsRouter = require("express").Router();
 
+/**
+ * @swagger
+ * /api/unauth/email-exists:
+ *   post:
+ *     summary: Check if an email is already registered
+ *     description: >
+ *       Returns a boolean indicating whether the email exists.
+ *       Always responds with the same shape to avoid user enumeration.
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: Result of email existence check
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 exists:
+ *                   type: boolean
+ */
+
 emailExistsRouter.post("/", async (req, res) => {
     const { email } = req.body;
 

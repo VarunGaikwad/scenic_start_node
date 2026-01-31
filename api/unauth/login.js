@@ -3,8 +3,34 @@ const jwt = require("jsonwebtoken");
 const { connectDB } = require("../../db");
 
 const loginRouter = require("express").Router();
-
-loginRouter.post("/login", async (req, res) => {
+/**
+ * @swagger
+ * /api/unauth/login:
+ *   post:
+ *     summary: Login user
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
+loginRouter.post("/", async (req, res) => {
   const { email, password } = req.body;
 
   // Hard fail: login requires both
