@@ -72,7 +72,7 @@ loginRouter.post("/", async (req, res) => {
         email: user.email,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" },
+      { expiresIn: "7d" },
     );
 
     return res.status(200).json({
