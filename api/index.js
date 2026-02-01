@@ -6,7 +6,6 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -20,8 +19,8 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// Swagger setup (only in non-production)
-if (process.env.NODE_ENV !== "production") {
+// Swagger (only in development)
+if (process.env.NODE_ENV === "development") {
   const swaggerOptions = {
     definition: {
       openapi: "3.0.0",
@@ -32,27 +31,19 @@ if (process.env.NODE_ENV !== "production") {
       },
       servers: [
         {
-          // Use environment variable if provided, fallback to localhost
-          url: process.env.BASE_URL || `http://localhost:${PORT}`,
+          url: "/", // relative path works both locally and on Vercel
         },
       ],
     },
-    apis: ["./routes/*.js"], // Path to your routes with Swagger JSDoc
+    apis: ["./routes/*.js"],
   };
 
   const swaggerSpec = swaggerJsdoc(swaggerOptions);
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  console.log(`Swagger docs available at ${process.env.BASE_URL || `http://localhost:${PORT}`}/docs`);
+  console.log("Swagger docs enabled at /docs (development only)");
 }
 
-// API routes (no /api prefix)
+// API routes
 app.use("/", apiRoutes);
 
-// Export app for Vercel
 module.exports = app;
-
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
