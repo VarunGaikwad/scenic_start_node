@@ -1,5 +1,7 @@
 const axios = require("axios");
 const temperatureRouter = require("express").Router();
+const cache = new Map(); 
+const CACHE_TTL = 5 * 60 * 1000; 
 
 /**
  * @swagger
@@ -16,25 +18,21 @@ temperatureRouter.get("/", async (req, res) => {
     req.headers["x-forwarded-for"]?.split(",")[0] ||
     req.socket.remoteAddress;
 
-  // Local dev fallback
-  if (clientIP === "::1" || clientIP === "127.0.0.1") {
-    clientIP = "108.181.48.97";
-  }
-
-  if (!process.env.OPENWEATHER_API) {
-    return res.status(500).json({ message: "Weather service not configured" });
+  const cached = cache.get(clientIP);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return res.status(200).json(cached.data);
   }
 
   try {
     const latlongData = await fetchLatLong(clientIP);
-
     if (!latlongData?.latitude || !latlongData?.longitude) {
       return res.status(500).json({ message: "Unable to resolve location" });
     }
 
     const weatherData = await fetchWeatherInfo(latlongData);
 
-    // Return only what you actually need
+    cache.set(clientIP, { data: weatherData, timestamp: Date.now() });
+
     return res.status(200).json(weatherData);
   } catch (err) {
     console.error("Temperature error:", err.message);
@@ -55,11 +53,12 @@ async function fetchLatLong(IP) {
 
 async function fetchWeatherInfo({ latitude, longitude }) {
   const { data } = await axios.get(
-    "https://api.openweathermap.org/data/2.5/weather",
+    "https://api.openweathermap.org/data/3.0/onecall",
     {
       params: {
         lat: latitude,
         lon: longitude,
+        exclude:"minutely,alerts",
         appid: process.env.OPENWEATHER_API,
         units: "metric",
       },
