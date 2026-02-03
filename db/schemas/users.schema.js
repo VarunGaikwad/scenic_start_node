@@ -3,7 +3,7 @@ module.exports = {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["email", "passwordHash", "createdAt", "status"],
+      required: ["email", "passwordHash", "createdAt", "status", "role"],
       properties: {
         email: {
           bsonType: "string",
@@ -22,6 +22,10 @@ module.exports = {
 
         status: {
           enum: ["active", "pending", "blocked"],
+        },
+
+        role: {
+          enum: ["admin", "user"],
         },
 
         emailVerified: {
