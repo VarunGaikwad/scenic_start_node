@@ -22,18 +22,18 @@ const meRouter = require("express").Router();
  */
 meRouter.get("/", async (req, res) => {
   try {
-    if (!req.user || !req.user.sub) {
+    if (!req.user || !req.user.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    if (!ObjectId.isValid(req.user.sub)) {
+    if (!ObjectId.isValid(req.user.id)) {
       return res.status(401).json({ message: "Invalid token" });
     }
 
     const db = await connectDB();
 
     const user = await db.collection("users").findOne(
-      { _id: new ObjectId(req.user.sub) },
+      { _id: new ObjectId(req.user.id) },
       {
         projection: {
           passwordHash: 0,

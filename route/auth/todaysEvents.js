@@ -78,7 +78,7 @@ todaysEventsRouter.get("/", async (req, res) => {
     const events = await db
       .collection("birthday_reminders")
       .find({
-        userId: new ObjectId(req.user.sub),
+        userId: new ObjectId(req.user.id),
         isActive: true,
         $expr: {
           $or: matchConditions,

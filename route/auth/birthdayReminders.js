@@ -88,7 +88,7 @@ birthdayRemindersRouter.post("/", async (req, res) => {
     const birthDay = parsedDate.getUTCDate();
 
     const doc = {
-      userId: new ObjectId(req.user.sub),
+      userId: new ObjectId(req.user.id),
       name: name.trim(),
       birthDate: parsedDate,
       birthMonth,
@@ -181,7 +181,7 @@ birthdayRemindersRouter.patch("/:id", async (req, res) => {
 
     const existing = await db.collection("birthday_reminders").findOne({
       _id: new ObjectId(id),
-      userId: new ObjectId(req.user.sub),
+      userId: new ObjectId(req.user.id),
     });
 
     if (!existing) {
@@ -297,7 +297,7 @@ birthdayRemindersRouter.get("/", async (req, res) => {
 
     const reminders = await db
       .collection("birthday_reminders")
-      .find({ userId: new ObjectId(req.user.sub) })
+      .find({ userId: new ObjectId(req.user.id) })
       .sort({ birthDate: 1 })
       .toArray();
 
@@ -344,7 +344,7 @@ birthdayRemindersRouter.delete("/:id", async (req, res) => {
 
     const result = await db.collection("birthday_reminders").deleteOne({
       _id: new ObjectId(id),
-      userId: new ObjectId(req.user.sub),
+      userId: new ObjectId(req.user.id),
     });
 
     if (result.deletedCount === 0) {
