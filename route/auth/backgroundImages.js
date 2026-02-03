@@ -4,7 +4,8 @@ const { connectDB } = require("../../db");
 const { admin } = require("../../middleware");
 const upload = multer({ storage: multer.memoryStorage() });
 const supabase = require("../../supabase");
-
+const crypto = require("crypto");
+const { ObjectId } = require("mongodb");
 const backgroundImagesRouter = express.Router();
 
 /**
@@ -98,7 +99,10 @@ backgroundImagesRouter.post(
       const db = (await connectDB()).collection("background_images");
 
       // Compute file hash
-      const hash = crypto.createHash("sha256").update(file.buffer).digest("hex");
+      const hash = crypto
+        .createHash("sha256")
+        .update(file.buffer)
+        .digest("hex");
 
       // Check if hash already exists
       const existing = await db.findOne({ file_hash: hash });
@@ -126,15 +130,14 @@ backgroundImagesRouter.post(
         return res.status(500).json({ error: "File upload failed" });
       }
 
-      const imageUrl = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName).data.publicUrl;
+      const imageUrl = supabase.storage.from(bucketName).getPublicUrl(fileName)
+        .data.publicUrl;
 
       // Disable previous welcome if needed
       if (is_welcome === "true" || is_welcome === true) {
         await db.updateMany(
           { is_welcome: true },
-          { $set: { is_welcome: false, updated_at: new Date() } }
+          { $set: { is_welcome: false, updated_at: new Date() } },
         );
       }
 
@@ -162,7 +165,7 @@ backgroundImagesRouter.post(
       console.error("Error creating background image:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 /**
@@ -208,8 +211,8 @@ backgroundImagesRouter.get("/", async (req, res) => {
 
     const wallpaper = await collection.findOne(filter, {
       sort: {
-        priority: -1,        // highest priority first
-        created_at: -1,      // fallback
+        priority: -1, // highest priority first
+        created_at: -1, // fallback
       },
       projection: {
         updated_at: 0,
@@ -239,6 +242,81 @@ backgroundImagesRouter.get("/", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/background-images/{id}:
+ *   delete:
+ *     summary: Delete a background image (admin only)
+ *     tags:
+ *       - Background Images
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: MongoDB ID of the background image to delete
+ *     responses:
+ *       200:
+ *         description: Background image deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Background image not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not admin)
+ *       500:
+ *         description: Internal server error
+ */
+backgroundImagesRouter.delete("/:id", admin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = (await connectDB()).collection("background_images");
 
+    // Validate ObjectId
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid ID format" });
+    }
+
+    // Find the document first
+    const doc = await db.findOne({ _id: new ObjectId(id) });
+    if (!doc) {
+      return res.status(404).json({ error: "Background image not found" });
+    }
+
+    // Delete file from Supabase
+    const bucketName = "background image";
+    const fileName = doc.image_url.split("/").pop(); // extract file name from URL
+
+    const { error: supabaseError } = await supabase.storage
+      .from(bucketName)
+      .remove([fileName]);
+
+    if (supabaseError) {
+      console.error("Supabase delete error:", supabaseError);
+      // continue anyway
+    }
+
+    // Delete document from MongoDB (including file_hash)
+    await db.deleteOne({ _id: new ObjectId(id) });
+
+    return res.status(200).json({
+      message:
+        "Background image deleted successfully. It can now be re-uploaded.",
+    });
+  } catch (err) {
+    console.error("Error deleting background image:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 module.exports = backgroundImagesRouter;
