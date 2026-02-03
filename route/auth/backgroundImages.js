@@ -142,5 +142,80 @@ backgroundImagesRouter.post("/", admin, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/background-images:
+ *   get:
+ *     summary: Get a background image
+ *     tags:
+ *       - Background Images
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [welcome]
+ *         description: >
+ *           If set to 'welcome', returns the welcome background image.
+ *     responses:
+ *       200:
+ *         description: Background image
+ *       404:
+ *         description: No background image found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+backgroundImagesRouter.get("/", async (req, res) => {
+  try {
+    const { type } = req.query;
+
+    const db = await connectDB();
+    const collection = db.collection("background_images");
+
+    let filter = { is_active: true };
+
+    // 🎯 Special case: welcome wallpaper
+    if (type === "welcome") {
+      filter = { is_welcome: true, is_active: true };
+    }
+
+    const wallpaper = await collection.findOne(filter, {
+      sort: {
+        priority: -1,        // highest priority first
+        created_at: -1,      // fallback
+      },
+      projection: {
+        updated_at: 0,
+      },
+    });
+
+    if (!wallpaper) {
+      return res.status(404).json({
+        message: "Background image not found",
+      });
+    }
+
+    return res.status(200).json({
+      id: wallpaper._id.toString(),
+      image_url: wallpaper.image_url,
+      text_color: wallpaper.text_color,
+      overlay_color: wallpaper.overlay_color,
+      overlay_opacity: wallpaper.overlay_opacity,
+      is_welcome: wallpaper.is_welcome,
+      priority: wallpaper.priority,
+    });
+  } catch (err) {
+    console.error("Error fetching background image:", err);
+    return res.status(500).json({
+      error: "Internal server error",
+    });
+  }
+});
+
+
 
 module.exports = backgroundImagesRouter;
