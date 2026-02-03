@@ -1,39 +1,53 @@
 const jwt = require("jsonwebtoken");
 
-if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET is not set");
+const REQUIRED_ENVS = [
+  "JWT_SECRET",
+  "JWT_ISSUER",
+  "JWT_AUDIENCE",
+];
+
+for (const key of REQUIRED_ENVS) {
+  if (!process.env[key]) {
+    throw new Error(`${key} is not set`);
+  }
 }
 
-if (!process.env.ADMIN_EMAIL) {
-  throw new Error("ADMIN_EMAIL is not set");
-}
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_ISSUER = process.env.JWT_ISSUER;
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
+
+
 
 function auth(req, res, next) {
-  const header = req.headers.authorization;
+  const authHeader = req.headers.authorization;
 
-  if (!header || !header.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Missing authorization token" });
   }
 
-  const token = header.slice(7); // remove "Bearer "
+  const token = authHeader.slice(7);
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET, {
+    const payload = jwt.verify(token, JWT_SECRET, {
       algorithms: ["HS256"],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+      clockTolerance: 5, 
     });
 
-    const email = payload.email?.toLowerCase();
+    if (!payload.sub) {
+      throw new Error("Token missing subject");
+    }
 
     req.user = {
       id: payload.sub,
-      email,
-      is_admin: email === process.env.ADMIN_EMAIL.toLowerCase(),
-      iat: payload.iat,
-      exp: payload.exp,
+      email: payload.email?.toLowerCase() ?? null,
+      role: payload.role ?? "user",
     };
 
     next();
   } catch (err) {
+    console.warn("Auth failed:", err.message);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
