@@ -1,6 +1,9 @@
 const express = require("express");
+const multer = require("multer");
 const { connectDB } = require("../../db");
 const { admin } = require("../../middleware");
+const upload = multer({ storage: multer.memoryStorage() });
+const supabase = require("../../supabase");
 
 const backgroundImagesRouter = express.Router();
 
@@ -67,80 +70,90 @@ const backgroundImagesRouter = express.Router();
  *       500:
  *         description: Internal server error
  */
-backgroundImagesRouter.post("/", admin, async (req, res) => {
-  const session = (await connectDB()).client.startSession();
+backgroundImagesRouter.post(
+  "/",
+  admin,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const {
+        text_color,
+        overlay_color,
+        overlay_opacity,
+        priority,
+        is_active,
+        is_welcome,
+      } = req.body;
 
-  try {
-    const {
-      image_url,
-      text_color,
-      overlay_color,
-      overlay_opacity,
-      priority,
-      is_active,
-      is_welcome,
-    } = req.body;
+      const file = req.file; // multer gives the uploaded file in req.file
 
-    if (!image_url || !text_color) {
-      return res.status(400).json({
-        error: "image_url and text_color are required",
-      });
-    }
+      if (!file || !text_color) {
+        return res.status(400).json({
+          error: "Image file and text_color are required",
+        });
+      }
 
-    if (!["light", "dark"].includes(text_color)) {
-      return res.status(400).json({
-        error: "text_color must be 'light' or 'dark'",
-      });
-    }
+      if (!["light", "dark"].includes(text_color)) {
+        return res.status(400).json({
+          error: "text_color must be 'light' or 'dark'",
+        });
+      }
 
-    const db = await connectDB();
-    const collection = db.collection("background_images");
+      // Upload file to Supabase Storage
+      const fileName = `${Date.now()}_${file.originalname}`;
+      const { data, error: uploadError } = await supabase.storage
+        .from("images") // your bucket name
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
 
-    await session.withTransaction(async () => {
-      // 🔴 Step 1: If incoming is_welcome is true, disable all others
-      if (is_welcome === true) {
-        await collection.updateMany(
+      if (uploadError) {
+        console.error("Supabase upload error:", uploadError);
+        return res.status(500).json({ error: "File upload failed" });
+      }
+
+      const imageUrl = supabase.storage
+        .from("images")
+        .getPublicUrl(fileName).data.publicUrl;
+
+      const db = (await connectDB()).collection("background_images");
+
+      // 🔴 If is_welcome true, disable all others
+      if (is_welcome === "true" || is_welcome === true) {
+        await db.updateMany(
           { is_welcome: true },
-          {
-            $set: {
-              is_welcome: false,
-              updated_at: new Date(),
-            },
-          },
-          { session }
+          { $set: { is_welcome: false, updated_at: new Date() } }
         );
       }
 
-      // 🔵 Step 2: Insert new document
+      // Insert new document
       const doc = {
-        image_url,
+        image_url: imageUrl,
         text_color,
         overlay_color: overlay_color || null,
         overlay_opacity:
-          typeof overlay_opacity === "number" ? overlay_opacity : null,
-        priority: Number.isInteger(priority) ? priority : 0,
-        is_active: typeof is_active === "boolean" ? is_active : true,
-        is_welcome: is_welcome === true,
+          overlay_opacity !== undefined ? Number(overlay_opacity) : null,
+        priority: priority ? Number(priority) : 0,
+        is_active: is_active === "false" ? false : true,
+        is_welcome: is_welcome === "true" || is_welcome === true,
         created_at: new Date(),
         updated_at: new Date(),
       };
 
-      const result = await collection.insertOne(doc, { session });
+      const result = await db.insertOne(doc);
 
-      res.status(201).json({
+      return res.status(201).json({
         message: "Background image created",
         id: result.insertedId.toString(),
+        image_url: imageUrl,
       });
-    });
-  } catch (err) {
-    console.error("Error creating background image:", err);
-    return res.status(500).json({
-      error: "Internal server error",
-    });
-  } finally {
-    await session.endSession();
+    } catch (err) {
+      console.error("Error creating background image:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
   }
-});
+);
 
 /**
  * @swagger
