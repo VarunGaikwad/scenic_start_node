@@ -11,7 +11,7 @@ const backgroundImagesRouter = express.Router();
  * @swagger
  * /auth/background-images:
  *   post:
- *     summary: Create a background image (admin only)
+ *     summary: Create a background image (admin only, file upload)
  *     tags:
  *       - Background Images
  *     security:
@@ -19,36 +19,43 @@ const backgroundImagesRouter = express.Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
- *               - image_url
+ *               - image
  *               - text_color
  *             properties:
- *               image_url:
+ *               image:
  *                 type: string
- *                 example: https://cdn.example.com/bg/hero.webp
+ *                 format: binary
+ *                 description: The background image file to upload
  *               text_color:
  *                 type: string
  *                 enum: [light, dark]
+ *                 description: Text color for overlay
  *               overlay_color:
  *                 type: string
  *                 example: "#000000"
+ *                 description: Optional overlay color
  *               overlay_opacity:
  *                 type: number
  *                 minimum: 0
  *                 maximum: 1
  *                 example: 0.4
+ *                 description: Optional overlay opacity
  *               priority:
  *                 type: integer
  *                 example: 1
+ *                 description: Priority for sorting
  *               is_active:
  *                 type: boolean
  *                 example: true
+ *                 description: Whether this background is active
  *               is_welcome:
  *                 type: boolean
  *                 example: true
+ *                 description: Whether this is the welcome wallpaper
  *     responses:
  *       201:
  *         description: Background image created
@@ -61,6 +68,9 @@ const backgroundImagesRouter = express.Router();
  *                   type: string
  *                 id:
  *                   type: string
+ *                 image_url:
+ *                   type: string
+ *                   description: URL of the uploaded image
  *       400:
  *         description: Invalid input
  *       401:
@@ -70,6 +80,7 @@ const backgroundImagesRouter = express.Router();
  *       500:
  *         description: Internal server error
  */
+
 backgroundImagesRouter.post(
   "/",
   admin,
