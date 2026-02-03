@@ -44,14 +44,6 @@ const backgroundImagesRouter = express.Router();
  *                 maximum: 1
  *                 example: 0.4
  *                 description: Optional overlay opacity
- *               priority:
- *                 type: integer
- *                 example: 1
- *                 description: Priority for sorting
- *               is_active:
- *                 type: boolean
- *                 example: true
- *                 description: Whether this background is active
  *               is_welcome:
  *                 type: boolean
  *                 example: true
@@ -87,16 +79,9 @@ backgroundImagesRouter.post(
   upload.single("image"),
   async (req, res) => {
     try {
-      const {
-        text_color,
-        overlay_color,
-        overlay_opacity,
-        priority,
-        is_active,
-        is_welcome,
-      } = req.body;
-
-      const file = req.file; // multer gives the uploaded file in req.file
+      const { text_color, overlay_color, overlay_opacity, is_welcome } =
+        req.body;
+      const file = req.file;
 
       if (!file || !text_color) {
         return res.status(400).json({
@@ -110,10 +95,27 @@ backgroundImagesRouter.post(
         });
       }
 
-      // Upload file to Supabase Storage
+      const db = (await connectDB()).collection("background_images");
+
+      // Compute file hash
+      const hash = crypto.createHash("sha256").update(file.buffer).digest("hex");
+
+      // Check if hash already exists
+      const existing = await db.findOne({ file_hash: hash });
+      if (existing) {
+        return res.status(409).json({
+          error: "This image has already been uploaded",
+          id: existing._id.toString(),
+          image_url: existing.image_url,
+        });
+      }
+
+      // Upload to Supabase
       const fileName = `${Date.now()}_${file.originalname}`;
-      const { data, error: uploadError } = await supabase.storage
-        .from("images") // your bucket name
+      const bucketName = "background image";
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
         .upload(fileName, file.buffer, {
           contentType: file.mimetype,
           upsert: true,
@@ -125,12 +127,10 @@ backgroundImagesRouter.post(
       }
 
       const imageUrl = supabase.storage
-        .from("images")
+        .from(bucketName)
         .getPublicUrl(fileName).data.publicUrl;
 
-      const db = (await connectDB()).collection("background_images");
-
-      // 🔴 If is_welcome true, disable all others
+      // Disable previous welcome if needed
       if (is_welcome === "true" || is_welcome === true) {
         await db.updateMany(
           { is_welcome: true },
@@ -138,15 +138,14 @@ backgroundImagesRouter.post(
         );
       }
 
-      // Insert new document
+      // Insert document with hash
       const doc = {
         image_url: imageUrl,
+        file_hash: hash, // store hash to prevent duplicates
         text_color,
         overlay_color: overlay_color || null,
         overlay_opacity:
-          overlay_opacity !== undefined ? Number(overlay_opacity) : null,
-        priority: priority ? Number(priority) : 0,
-        is_active: is_active === "false" ? false : true,
+          overlay_opacity !== undefined ? parseFloat(overlay_opacity) : null,
         is_welcome: is_welcome === "true" || is_welcome === true,
         created_at: new Date(),
         updated_at: new Date(),

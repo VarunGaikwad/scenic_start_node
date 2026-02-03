@@ -6,15 +6,20 @@ module.exports = {
       required: [
         "image_url",
         "text_color",
-        "is_active",
         "is_welcome",
         "created_at",
+        "file_hash"
       ],
       properties: {
         image_url: {
           bsonType: "string",
           description: "Public URL of the background image",
           pattern: "^https?://",
+        },
+
+        file_hash: {
+          bsonType: "string",
+          description: "SHA256 hash of the image file for duplicate prevention",
         },
 
         text_color: {
@@ -36,20 +41,9 @@ module.exports = {
           description: "Overlay opacity from 0 to 1",
         },
 
-        is_active: {
-          bsonType: "bool",
-          description: "Whether this background is currently usable",
-        },
-
         is_welcome: {
           bsonType: "bool",
           description: "Whether this background is for login page",
-        },
-
-        priority: {
-          bsonType: "int",
-          minimum: 0,
-          description: "Lower number = higher priority",
         },
 
         created_at: {
@@ -64,4 +58,11 @@ module.exports = {
       },
     },
   },
+  indexes: [
+    {
+      key: { file_hash: 1 },
+      name: "unique_file_hash",
+      unique: true,
+    },
+  ],
 };
