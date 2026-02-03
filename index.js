@@ -20,9 +20,9 @@ if (process.env.NODE_ENV === "development") {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Background Images API",
+      title: "Scenic API",
       version: "1.0.0",
-      description: "Admin-only API for managing background images",
+      description: "This API are only for scenic webapp use.",
     },
     servers: [
       {

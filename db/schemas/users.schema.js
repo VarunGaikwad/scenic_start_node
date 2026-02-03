@@ -15,11 +15,6 @@ module.exports = {
           minLength: 60,
         },
 
-        name: {
-          bsonType: ["string", "null"],
-          minLength: 1,
-        },
-
         status: {
           enum: ["active", "pending", "blocked"],
         },
