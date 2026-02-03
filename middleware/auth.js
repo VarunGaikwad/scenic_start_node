@@ -1,10 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const REQUIRED_ENVS = [
-  "JWT_SECRET",
-  "JWT_ISSUER",
-  "JWT_AUDIENCE",
-];
+const REQUIRED_ENVS = ["JWT_SECRET", "JWT_ISSUER", "JWT_AUDIENCE"];
 
 for (const key of REQUIRED_ENVS) {
   if (!process.env[key]) {
@@ -15,8 +11,6 @@ for (const key of REQUIRED_ENVS) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_ISSUER = process.env.JWT_ISSUER;
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
-
-
 
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -32,7 +26,7 @@ function auth(req, res, next) {
       algorithms: ["HS256"],
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
-      clockTolerance: 5, 
+      clockTolerance: 5,
     });
 
     if (!payload.sub) {
@@ -48,6 +42,7 @@ function auth(req, res, next) {
     next();
   } catch (err) {
     console.warn("Auth failed:", err.message);
+    debugger;
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
