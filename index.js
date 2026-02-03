@@ -17,17 +17,35 @@ app.get("/health", (_req, res) => {
 
 if (process.env.NODE_ENV === "development") {
   const swaggerOptions = {
-    definition: {
-      openapi: "3.0.0",
-      info: {
-        title: "Scenic Start NodeJS",
-        version: "1.0.0",
-        description: "Scenic Start NodeJS application",
-      },
-      servers: [{ url: "/" }],
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Background Images API",
+      version: "1.0.0",
+      description: "Admin-only API for managing background images",
     },
-    apis: ["./api/**/*.js"],
-  };
+    servers: [
+      {
+        url: "http://localhost:8091",
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+  apis: ["./api/**/*.js"],
+};
 
   const swaggerSpec = swaggerJsdoc(swaggerOptions);
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

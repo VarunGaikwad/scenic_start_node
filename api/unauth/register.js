@@ -6,7 +6,7 @@ const registerRouter = require("express").Router();
 
 /**
  * @swagger
- * /api/unauth/register:
+ * /unauth/register:
  *   post:
  *     summary: Register a new user
  *     tags:

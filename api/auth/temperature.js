@@ -16,7 +16,7 @@ setInterval(() => {
 
 /**
  * @swagger
- * /api/auth/temperature:
+ * /auth/temperature:
  *   get:
  *     summary: Get current temperature based on client IP
  *     tags:

@@ -5,7 +5,7 @@ const birthdayRemindersRouter = require("express").Router();
 
 /**
  * @swagger
- * /api/auth/birthday-reminders:
+ * /auth/birthday-reminders:
  *   post:
  *     summary: Create a birthday reminder
  *     tags:
@@ -125,7 +125,7 @@ birthdayRemindersRouter.post("/", async (req, res) => {
 
 /**
  * @swagger
- * /api/auth/birthday-reminders/{id}:
+ * /auth/birthday-reminders/{id}:
  *   patch:
  *     summary: Update a birthday reminder
  *     tags:
@@ -253,7 +253,7 @@ birthdayRemindersRouter.patch("/:id", async (req, res) => {
 
 /**
  * @swagger
- * /api/auth/birthday-reminders:
+ * /auth/birthday-reminders:
  *   get:
  *     summary: Get all birthday reminders
  *     tags:
@@ -310,7 +310,7 @@ birthdayRemindersRouter.get("/", async (req, res) => {
 
 /**
  * @swagger
- * /api/auth/birthday-reminders/{id}:
+ * /auth/birthday-reminders/{id}:
  *   delete:
  *     summary: Delete a birthday reminder
  *     tags:

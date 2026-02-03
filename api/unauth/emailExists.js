@@ -3,7 +3,7 @@ const emailExistsRouter = require("express").Router();
 
 /**
  * @swagger
- * /api/unauth/email-exists:
+ * /unauth/email-exists:
  *   post:
  *     summary: Check if an email is already registered
  *     description: >

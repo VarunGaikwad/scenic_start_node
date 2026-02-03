@@ -1,11 +1,12 @@
 const express = require("express");
 const { connectDB } = require("../../db");
+const { admin } = require("../../middleware");
 
 const motivationQuotesRouter = express.Router();
 
 /**
  * @swagger
- * /api/auth/quote-of-the-day:
+ * /auth/quote-of-the-day:
  *   get:
  *     summary: Get deterministic quote of the day
  *     description: Returns the same quote for all users on the same UTC day
@@ -59,13 +60,7 @@ motivationQuotesRouter.get("/", async (req, res) => {
  * @swagger-ignore
  * 🔐 SECRET ADMIN API (do not expose in docs)
  */
-motivationQuotesRouter.post("/secret/add", async (req, res) => {
-  const secret = req.headers["x-admin-secret"];
-
-  if (secret !== process.env.ADMIN_SECRET) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
+motivationQuotesRouter.post("/", admin, async (req, res) => {
   const { text, author, tags } = req.body;
 
   if (!text || text.length < 5) {

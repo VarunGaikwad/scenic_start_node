@@ -5,7 +5,7 @@ const { connectDB } = require("../../db");
 const loginRouter = require("express").Router();
 /**
  * @swagger
- * /api/unauth/login:
+ * /unauth/login:
  *   post:
  *     summary: Login user
  *     tags:

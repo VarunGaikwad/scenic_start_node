@@ -5,7 +5,7 @@ const meRouter = require("express").Router();
 
 /**
  * @swagger
- * /api/auth/me:
+ * /auth/me:
  *   get:
  *     summary: Get current authenticated user
  *     tags:

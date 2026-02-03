@@ -5,7 +5,7 @@ const todaysEventsRouter = require("express").Router();
 
 /**
  * @swagger
- * /api/auth/todays-events:
+ * /auth/todays-events:
  *   get:
  *     summary: Get today's birthday events
  *     description: Returns active birthday reminders matching today's UTC date
