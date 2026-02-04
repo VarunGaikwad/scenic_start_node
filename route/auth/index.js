@@ -10,4 +10,6 @@ authRoutes.use("/birthday-reminder", require("./birthdayReminders"));
 
 authRoutes.use("/background-images", require("./backgroundImages"));
 
+authRoutes.use("/favorite-links", require("./favoriteLinks"));
+
 module.exports = authRoutes;
