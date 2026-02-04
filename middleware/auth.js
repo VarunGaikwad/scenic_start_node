@@ -1,6 +1,11 @@
 const jwt = require("jsonwebtoken");
 
-const REQUIRED_ENVS = ["JWT_SECRET", "JWT_ISSUER", "JWT_AUDIENCE"];
+const REQUIRED_ENVS = [
+  "JWT_SECRET",
+  "JWT_ISSUER",
+  "JWT_AUDIENCE",
+  "EXCEPTION_URL",
+];
 
 for (const key of REQUIRED_ENVS) {
   if (!process.env[key]) {
@@ -11,12 +16,20 @@ for (const key of REQUIRED_ENVS) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_ISSUER = process.env.JWT_ISSUER;
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
+const EXCEPTION_URL = process.env.EXCEPTION_URL;
 
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Missing authorization token" });
+    if (EXCEPTION_URL.split(";").indexOf(req.originalUrl) > -1) {
+      req.user = {
+        new_user: true,
+      };
+      next();
+    } else {
+      return res.status(401).json({ message: "Missing authorization token" });
+    }
   }
 
   const token = authHeader.slice(7);
@@ -42,7 +55,6 @@ function auth(req, res, next) {
     next();
   } catch (err) {
     console.warn("Auth failed:", err.message);
-    debugger;
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }

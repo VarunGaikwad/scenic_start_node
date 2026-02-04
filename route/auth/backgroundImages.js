@@ -202,17 +202,15 @@ backgroundImagesRouter.get("/", async (req, res) => {
     const db = await connectDB();
     const collection = db.collection("background_images");
 
-    let filter = { is_active: true };
-
+    let filter;
     // 🎯 Special case: welcome wallpaper
-    if (type === "welcome") {
-      filter = { is_welcome: true, is_active: true };
+    if (req.user.new_user) {
+      filter = { is_welcome: true };
     }
 
     const wallpaper = await collection.findOne(filter, {
       sort: {
-        priority: -1, // highest priority first
-        created_at: -1, // fallback
+        created_at: -1,
       },
       projection: {
         updated_at: 0,
