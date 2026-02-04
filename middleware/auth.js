@@ -27,6 +27,7 @@ function auth(req, res, next) {
         new_user: true,
       };
       next();
+      return;
     } else {
       return res.status(401).json({ message: "Missing authorization token" });
     }
