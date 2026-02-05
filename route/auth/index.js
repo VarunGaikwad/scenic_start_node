@@ -2,7 +2,7 @@ const authRoutes = require("express").Router();
 
 authRoutes.use("/me", require("./me"));
 
-authRoutes.use("/temperature", require("./temperature"));
+authRoutes.use("/weather-info", require("./weatherInfo"));
 
 authRoutes.use("/quote-of-the-day", require("./quoteOfTheDay"));
 

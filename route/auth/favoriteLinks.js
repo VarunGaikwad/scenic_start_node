@@ -146,7 +146,13 @@ favoriteLinksRouter.post("/", async (req, res) => {
     };
 
     const result = await db.collection("favorite_links").insertOne(newItem);
-    res.status(201).json(result.ops[0]);
+
+    // get the inserted document (new driver doesn't have ops)
+    const insertedItem = await db
+      .collection("favorite_links")
+      .findOne({ _id: result.insertedId });
+
+    res.status(201).json(insertedItem);
   } catch (err) {
     console.error(err);
     if (err.code === 11000) {
