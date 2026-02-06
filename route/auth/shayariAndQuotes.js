@@ -77,58 +77,75 @@ shayariAndQuotesRouter.get("/", async (req, res) => {
  * 🔐 SECRET ADMIN API (do not expose in docs)
  */
 shayariAndQuotesRouter.post("/", admin, async (req, res) => {
-  const { text, author, tags, type } = req.body;
+  const payload = Array.isArray(req.body) ? req.body : [req.body];
 
-  // 1️⃣ Validate input strictly
-  if (!text || text.trim().length < 5) {
-    return res.status(400).json({ message: "Text too short" });
-  }
+  // 1️⃣ Validate all items first (fail fast)
+  for (const item of payload) {
+    if (!item.text || item.text.trim().length < 5) {
+      return res.status(400).json({
+        message: "Each item must have text with min length 5",
+      });
+    }
 
-  if (!["shayari", "quotes"].includes(type)) {
-    return res.status(400).json({
-      message: "Invalid type. Use 'shayari' or 'quotes'",
-    });
+    if (!["shayari", "quotes"].includes(item.type)) {
+      return res.status(400).json({
+        message: "Invalid type. Use 'shayari' or 'quotes'",
+      });
+    }
   }
 
   try {
     const db = await connectDB();
     const col = db.collection("shayari_quotes");
 
-    await col.insertOne({
-      text: text.trim(),
-      type, // ✅ IMPORTANT
-      author: author?.trim() || null,
-      tags: Array.isArray(tags) ? tags : [],
+    // 2️⃣ Normalize documents
+    const docs = payload.map((item) => ({
+      text: item.text.trim(),
+      type: item.type,
+      author: item.author?.trim() || null,
+      tags: Array.isArray(item.tags) ? item.tags : [],
       userId: null,
       createdAt: new Date(),
-    });
+    }));
 
-    // 2️⃣ Keep max 31 per type (NOT global)
-    const count = await col.countDocuments({ type });
-    if (count > 31) {
-      const excess = count - 31;
+    // 3️⃣ Bulk insert
+    const result = await col.insertMany(docs, { ordered: false });
 
-      const oldItems = await col
-        .find({ type })
-        .sort({ createdAt: 1 })
-        .limit(excess)
-        .toArray();
+    // 4️⃣ Enforce max 31 per type
+    for (const type of ["shayari", "quotes"]) {
+      const count = await col.countDocuments({ type });
 
-      await col.deleteMany({
-        _id: { $in: oldItems.map((q) => q._id) },
-      });
+      if (count > 31) {
+        const excess = count - 31;
+
+        const oldItems = await col
+          .find({ type })
+          .sort({ createdAt: 1 })
+          .limit(excess)
+          .toArray();
+
+        await col.deleteMany({
+          _id: { $in: oldItems.map((q) => q._id) },
+        });
+      }
     }
 
-    return res.status(201).json({ message: `${type} added` });
+    return res.status(201).json({
+      message: "Entries added",
+      inserted: result.insertedCount,
+    });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: "Duplicate entry" });
+      return res.status(409).json({
+        message: "One or more duplicate entries",
+      });
     }
 
     console.error(err);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 
 module.exports = shayariAndQuotesRouter;
