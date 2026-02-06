@@ -4,14 +4,20 @@ module.exports = {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["text", "type", "createdAt"],
+      required: ["text", "normalizedText", "type", "createdAt"],
       additionalProperties: false,
 
       properties: {
         text: {
           bsonType: "string",
           minLength: 5,
-          description: "Shayari or quote text",
+          description: "Original shayari or quote text",
+        },
+
+        normalizedText: {
+          bsonType: "string",
+          minLength: 5,
+          description: "Lowercased + trimmed + space-normalized text for uniqueness",
         },
 
         type: {
@@ -59,15 +65,8 @@ module.exports = {
 
   indexes: [
     {
-      keys: { type: 1, text: 1 },
+      keys: { normalizedText: 1 },
       options: { unique: true },
-    },
-    {
-      keys: { userId: 1, text: 1 },
-      options: {
-        unique: true,
-        partialFilterExpression: { userId: { $ne: null } },
-      },
     },
   ],
 };

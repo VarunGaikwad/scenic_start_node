@@ -4,6 +4,13 @@ const { admin } = require("../../middleware");
 
 const shayariAndQuotesRouter = express.Router();
 
+function normalizeText(text) {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 /**
  * @swagger
  * /auth/shayari-quotes:
@@ -79,7 +86,7 @@ shayariAndQuotesRouter.get("/", async (req, res) => {
 shayariAndQuotesRouter.post("/", admin, async (req, res) => {
   const payload = Array.isArray(req.body) ? req.body : [req.body];
 
-  // 1️⃣ Validate all items first (fail fast)
+  // 1️⃣ Validate input (fail fast)
   for (const item of payload) {
     if (!item.text || item.text.trim().length < 5) {
       return res.status(400).json({
@@ -98,46 +105,49 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
     const db = await connectDB();
     const col = db.collection("shayari_quotes");
 
-    // 2️⃣ Normalize documents
-    const docs = payload.map((item) => ({
-      text: item.text.trim(),
-      type: item.type,
-      author: item.author?.trim() || null,
-      tags: Array.isArray(item.tags) ? item.tags : [],
-      userId: null,
-      createdAt: new Date(),
-    }));
+    // 2️⃣ Normalize + prepare docs
+    const docs = payload.map((item) => {
+      const text = item.text.trim();
 
-    // 3️⃣ Bulk insert
+      return {
+        text,
+        normalizedText: normalizeText(text), // 🔥 REQUIRED
+        type: item.type,
+        author: item.author?.trim() || null,
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        userId: null,
+        createdAt: new Date(),
+      };
+    });
+
+    // 3️⃣ Bulk insert (skip duplicates)
     const result = await col.insertMany(docs, { ordered: false });
 
-    // 4️⃣ Enforce max 31 per type
+    // 4️⃣ Enforce max 31 per type (deterministic)
     for (const type of ["shayari", "quotes"]) {
-      const count = await col.countDocuments({ type });
+      const idsToDelete = await col
+        .find({ type })
+        .sort({ createdAt: 1 })
+        .skip(31)
+        .project({ _id: 1 })
+        .toArray();
 
-      if (count > 31) {
-        const excess = count - 31;
-
-        const oldItems = await col
-          .find({ type })
-          .sort({ createdAt: 1 })
-          .limit(excess)
-          .toArray();
-
+      if (idsToDelete.length > 0) {
         await col.deleteMany({
-          _id: { $in: oldItems.map((q) => q._id) },
+          _id: { $in: idsToDelete.map((d) => d._id) },
         });
       }
     }
 
     return res.status(201).json({
-      message: "Entries added",
+      message: "Insert completed",
       inserted: result.insertedCount,
+      attempted: docs.length,
     });
   } catch (err) {
     if (err.code === 11000) {
       return res.status(409).json({
-        message: "One or more duplicate entries",
+        message: "Duplicate shayari/quote detected",
       });
     }
 
@@ -145,6 +155,7 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 
 
