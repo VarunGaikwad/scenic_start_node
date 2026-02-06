@@ -11,34 +11,44 @@ module.exports = {
         text: {
           bsonType: "string",
           minLength: 5,
+          description: "Shayari or quote text",
         },
 
         type: {
           bsonType: "string",
           enum: ["shayari", "quotes"],
+          description: "Content type",
         },
 
         author: {
-          bsonType: ["string", "null"],
-          minLength: 1
+          oneOf: [
+            { bsonType: "string", minLength: 1 },
+            { bsonType: "null" },
+          ],
+          description: "Optional author name",
         },
 
         tags: {
           bsonType: "array",
-          minItems: 1,
           uniqueItems: true,
           items: {
             bsonType: "string",
-            minLength: 1
-          }
+            minLength: 1,
+          },
+          description: "Optional tags",
         },
 
         userId: {
-          bsonType: ["objectId", "null"],
+          oneOf: [
+            { bsonType: "objectId" },
+            { bsonType: "null" },
+          ],
+          description: "Null for admin/system entries",
         },
 
         createdAt: {
           bsonType: "date",
+          description: "Creation timestamp",
         },
       },
     },
@@ -49,10 +59,14 @@ module.exports = {
 
   indexes: [
     {
+      keys: { type: 1, text: 1 },
+      options: { unique: true },
+    },
+    {
       keys: { userId: 1, text: 1 },
       options: {
         unique: true,
-        partialFilterExpression: { userId: { $ne: null } }
+        partialFilterExpression: { userId: { $ne: null } },
       },
     },
   ],
