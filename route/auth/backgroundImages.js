@@ -2,17 +2,71 @@ const express = require("express");
 const multer = require("multer");
 const { connectDB } = require("../../db");
 const { admin } = require("../../middleware");
-const upload = multer({ storage: multer.memoryStorage() });
 const supabase = require("../../supabase");
 const crypto = require("crypto");
 const { ObjectId } = require("mongodb");
+
+// Configure multer with file size and type validation
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+});
+
 const backgroundImagesRouter = express.Router();
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     BackgroundImage:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: Unique identifier
+ *         image_url:
+ *           type: string
+ *           description: Public URL of the background image
+ *         text_color:
+ *           type: string
+ *           enum: [light, dark]
+ *           description: Text color for overlay content
+ *         overlay_color:
+ *           type: string
+ *           nullable: true
+ *           description: Hex color code for overlay
+ *         overlay_opacity:
+ *           type: number
+ *           nullable: true
+ *           minimum: 0
+ *           maximum: 1
+ *           description: Opacity of the overlay
+ *         is_welcome:
+ *           type: boolean
+ *           description: Whether this is the welcome wallpaper
+ *     Error:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: string
+ *           description: Error message
+ */
 
 /**
  * @swagger
  * /auth/background-images:
  *   post:
  *     summary: Create a background image (admin only, file upload)
+ *     description: Upload a new background image. Only one image can be set as the welcome wallpaper at a time.
  *     tags:
  *       - Background Images
  *     security:
@@ -30,7 +84,7 @@ const backgroundImagesRouter = express.Router();
  *               image:
  *                 type: string
  *                 format: binary
- *                 description: The background image file to upload
+ *                 description: The background image file to upload (max 10MB)
  *               text_color:
  *                 type: string
  *                 enum: [light, dark]
@@ -38,20 +92,20 @@ const backgroundImagesRouter = express.Router();
  *               overlay_color:
  *                 type: string
  *                 example: "#000000"
- *                 description: Optional overlay color
+ *                 description: Optional overlay color (hex format)
  *               overlay_opacity:
  *                 type: number
  *                 minimum: 0
  *                 maximum: 1
  *                 example: 0.4
- *                 description: Optional overlay opacity
+ *                 description: Optional overlay opacity (0-1)
  *               is_welcome:
  *                 type: boolean
  *                 example: true
  *                 description: Whether this is the welcome wallpaper
  *     responses:
  *       201:
- *         description: Background image created
+ *         description: Background image created successfully
  *         content:
  *           application/json:
  *             schema:
@@ -59,6 +113,7 @@ const backgroundImagesRouter = express.Router();
  *               properties:
  *                 message:
  *                   type: string
+ *                   example: Background image created
  *                 id:
  *                   type: string
  *                 image_url:
@@ -66,14 +121,52 @@ const backgroundImagesRouter = express.Router();
  *                   description: URL of the uploaded image
  *       400:
  *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               missingFields:
+ *                 value:
+ *                   error: Image file and text_color are required
+ *               invalidTextColor:
+ *                 value:
+ *                   error: text_color must be 'light' or 'dark'
+ *               invalidOpacity:
+ *                 value:
+ *                   error: overlay_opacity must be between 0 and 1
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       403:
  *         description: Forbidden (not admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Duplicate image
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                 id:
+ *                   type: string
+ *                 image_url:
+ *                   type: string
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
-
 backgroundImagesRouter.post(
   "/",
   admin,
@@ -96,9 +189,19 @@ backgroundImagesRouter.post(
         });
       }
 
+      // Validate overlay_opacity if provided
+      if (overlay_opacity !== undefined) {
+        const opacity = parseFloat(overlay_opacity);
+        if (isNaN(opacity) || opacity < 0 || opacity > 1) {
+          return res.status(400).json({
+            error: "overlay_opacity must be between 0 and 1",
+          });
+        }
+      }
+
       const db = (await connectDB()).collection("background_images");
 
-      // Compute file hash
+      // Compute file hash for duplicate detection
       const hash = crypto
         .createHash("sha256")
         .update(file.buffer)
@@ -133,23 +236,27 @@ backgroundImagesRouter.post(
       const imageUrl = supabase.storage.from(bucketName).getPublicUrl(fileName)
         .data.publicUrl;
 
-      // Disable previous welcome if needed
-      if (is_welcome === "true" || is_welcome === true) {
+      // Parse is_welcome as boolean
+      const isWelcomeBool = is_welcome === "true" || is_welcome === true;
+
+      // Disable previous welcome wallpaper if needed
+      if (isWelcomeBool) {
         await db.updateMany(
           { is_welcome: true },
-          { $set: { is_welcome: false, updated_at: new Date() } },
+          { $set: { is_welcome: false, updated_at: new Date() } }
         );
       }
 
-      // Insert document with hash
+      // Insert document with hash and filename for easier deletion
       const doc = {
         image_url: imageUrl,
-        file_hash: hash, // store hash to prevent duplicates
+        file_name: fileName, // Store filename for reliable deletion
+        file_hash: hash,
         text_color,
         overlay_color: overlay_color || null,
         overlay_opacity:
           overlay_opacity !== undefined ? parseFloat(overlay_opacity) : null,
-        is_welcome: is_welcome === "true" || is_welcome === true,
+        is_welcome: isWelcomeBool,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -163,9 +270,18 @@ backgroundImagesRouter.post(
       });
     } catch (err) {
       console.error("Error creating background image:", err);
+      
+      // Handle multer file size/type errors
+      if (err.message === "Only image files are allowed") {
+        return res.status(400).json({ error: err.message });
+      }
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "File size exceeds 10MB limit" });
+      }
+      
       return res.status(500).json({ error: "Internal server error" });
     }
-  },
+  }
 );
 
 /**
@@ -173,39 +289,54 @@ backgroundImagesRouter.post(
  * /auth/background-images:
  *   get:
  *     summary: Get a background image
+ *     description: Returns a welcome wallpaper for new users, or a regular wallpaper for existing users
  *     tags:
  *       - Background Images
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [welcome]
- *         description: >
- *           If set to 'welcome', returns the welcome background image.
  *     responses:
  *       200:
  *         description: Background image
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BackgroundImage'
  *       404:
  *         description: No background image found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Background image not found
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 backgroundImagesRouter.get("/", async (req, res) => {
   try {
-    const { type } = req.query;
-
     const db = await connectDB();
     const collection = db.collection("background_images");
 
-    let filter;
-    // 🎯 Special case: welcome wallpaper
+    // Determine filter based on user status
+    let filter = {};
     if (req.user.new_user) {
+      // New users get the welcome wallpaper
       filter = { is_welcome: true };
+    } else {
+      // Existing users get regular wallpapers (not welcome)
+      filter = { $or: [{ is_welcome: false }, { is_welcome: { $exists: false } }] };
     }
 
     const wallpaper = await collection.findOne(filter, {
@@ -214,6 +345,8 @@ backgroundImagesRouter.get("/", async (req, res) => {
       },
       projection: {
         updated_at: 0,
+        file_hash: 0,
+        file_name: 0,
       },
     });
 
@@ -230,7 +363,6 @@ backgroundImagesRouter.get("/", async (req, res) => {
       overlay_color: wallpaper.overlay_color,
       overlay_opacity: wallpaper.overlay_opacity,
       is_welcome: wallpaper.is_welcome,
-      priority: wallpaper.priority,
     });
   } catch (err) {
     console.error("Error fetching background image:", err);
@@ -245,6 +377,7 @@ backgroundImagesRouter.get("/", async (req, res) => {
  * /auth/background-images/{id}:
  *   delete:
  *     summary: Delete a background image (admin only)
+ *     description: Delete a background image from both database and storage
  *     tags:
  *       - Background Images
  *     security:
@@ -266,14 +399,37 @@ backgroundImagesRouter.get("/", async (req, res) => {
  *               properties:
  *                 message:
  *                   type: string
+ *                   example: Background image deleted successfully. It can now be re-uploaded.
+ *       400:
+ *         description: Invalid ID format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       404:
  *         description: Background image not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       403:
  *         description: Forbidden (not admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 backgroundImagesRouter.delete("/:id", admin, async (req, res) => {
   try {
@@ -291,20 +447,22 @@ backgroundImagesRouter.delete("/:id", admin, async (req, res) => {
       return res.status(404).json({ error: "Background image not found" });
     }
 
-    // Delete file from Supabase
+    // Delete file from Supabase using stored filename
     const bucketName = "background image";
-    const fileName = doc.image_url.split("/").pop(); // extract file name from URL
+    const fileName = doc.file_name; // Use stored filename instead of parsing URL
 
-    const { error: supabaseError } = await supabase.storage
-      .from(bucketName)
-      .remove([fileName]);
+    if (fileName) {
+      const { error: supabaseError } = await supabase.storage
+        .from(bucketName)
+        .remove([fileName]);
 
-    if (supabaseError) {
-      console.error("Supabase delete error:", supabaseError);
-      // continue anyway
+      if (supabaseError) {
+        console.error("Supabase delete error:", supabaseError);
+        // Continue anyway - we still want to delete the DB record
+      }
     }
 
-    // Delete document from MongoDB (including file_hash)
+    // Delete document from MongoDB (including file_hash, allowing re-upload)
     await db.deleteOne({ _id: new ObjectId(id) });
 
     return res.status(200).json({
