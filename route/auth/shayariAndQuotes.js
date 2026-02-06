@@ -126,7 +126,7 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
 
   if (docs.length === 0) {
     return res.status(409).json({
-      message: "All entries are duplicates",
+      message: "All entries are duplicates within payload",
     });
   }
 
@@ -134,22 +134,47 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
     const db = await connectDB();
     const col = db.collection("shayari_quotes");
 
-    // 3️⃣ Insert (duplicates now impossible from payload)
-    const result = await col.insertMany(docs, { ordered: false });
+    // 3️⃣ Check existing duplicates BEFORE inserting
+    const normalizedTexts = docs.map(d => d.normalizedText);
+    const existing = await col.find({
+      normalizedText: { $in: normalizedTexts }
+    }).project({ normalizedText: 1 }).toArray();
 
-    // 4️⃣ Enforce max 31 per type
+    const existingSet = new Set(existing.map(e => e.normalizedText));
+    
+    // Filter out documents that already exist
+    const newDocs = docs.filter(d => !existingSet.has(d.normalizedText));
+    const skipped = docs.length - newDocs.length;
+
+    if (newDocs.length === 0) {
+      return res.status(409).json({
+        message: "All entries already exist in database",
+        attempted: payload.length,
+        inPayloadDuplicates: payload.length - docs.length,
+        alreadyInDB: skipped,
+      });
+    }
+
+    // 4️⃣ Insert only new documents
+    const result = await col.insertMany(newDocs, { ordered: false });
+
+    // 5️⃣ Enforce max 31 per type
     for (const type of ["shayari", "quotes"]) {
-      const idsToDelete = await col
-        .find({ type })
-        .sort({ createdAt: 1 })
-        .skip(31)
-        .project({ _id: 1 })
-        .toArray();
+      const count = await col.countDocuments({ type });
+      
+      if (count > 31) {
+        const idsToDelete = await col
+          .find({ type })
+          .sort({ createdAt: 1 })
+          .limit(count - 31)
+          .project({ _id: 1 })
+          .toArray();
 
-      if (idsToDelete.length > 0) {
-        await col.deleteMany({
-          _id: { $in: idsToDelete.map((d) => d._id) },
-        });
+        if (idsToDelete.length > 0) {
+          await col.deleteMany({
+            _id: { $in: idsToDelete.map((d) => d._id) },
+          });
+        }
       }
     }
 
@@ -157,22 +182,13 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
       message: "Insert completed",
       inserted: result.insertedCount,
       attempted: payload.length,
-      deduplicated: payload.length - docs.length,
+      inPayloadDuplicates: payload.length - docs.length,
+      alreadyInDB: skipped,
     });
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(409).json({
-        message: "Duplicate shayari/quote already exists",
-      });
-    }
-
     console.error(err);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-
-
-
-
 
 module.exports = shayariAndQuotesRouter;
