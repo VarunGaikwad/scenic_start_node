@@ -181,4 +181,18 @@ async function fetchWeatherInfo({ latitude, longitude }) {
   }
 }
 
+async function fetchTemperatureByIP(ip) {
+  const coords = await fetchLatLong(ip);
+  if (!coords) return null;
+
+  return fetchWeatherInfo(coords);
+}
+
+async function fetchTemperatureByCoords(lat, lon) {
+  return fetchWeatherInfo({
+    latitude: lat,
+    longitude: lon,
+  });
+}
+
 module.exports = temperatureRouter;
