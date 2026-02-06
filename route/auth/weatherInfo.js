@@ -56,6 +56,7 @@ function transformWeatherData(data) {
     },
     humidity: data.main.humidity,
     pressure: data.main.pressure,
+    visibility: data.visibility, // in meters
     weather: {
       main: data.weather?.[0]?.main,
       description: data.weather?.[0]?.description,
@@ -72,6 +73,8 @@ function transformWeatherData(data) {
         lat: data.coord?.lat,
         lon: data.coord?.lon,
       },
+      sunrise: data.sys?.sunrise, // Unix timestamp
+      sunset: data.sys?.sunset,   // Unix timestamp
     },
     timestamp: new Date().toISOString(),
   };
@@ -130,6 +133,10 @@ function cleanup() {
  *           type: number
  *           description: Atmospheric pressure in hPa
  *           example: 1013
+ *         visibility:
+ *           type: number
+ *           description: Visibility in meters
+ *           example: 10000
  *         weather:
  *           type: object
  *           properties:
@@ -169,6 +176,14 @@ function cleanup() {
  *                   type: number
  *                 lon:
  *                   type: number
+ *             sunrise:
+ *               type: number
+ *               description: Sunrise time (Unix timestamp)
+ *               example: 1707187200
+ *             sunset:
+ *               type: number
+ *               description: Sunset time (Unix timestamp)
+ *               example: 1707226800
  *         timestamp:
  *           type: string
  *           format: date-time
