@@ -3,7 +3,8 @@ const { connectDB } = require("./connect");
 const schemas = [
   require("./schemas/users.schema"),
   require("./schemas/favoriteLinks.schema"),
-  require("./schemas/motivationQuotes.schema"),
+  require("./schemas/shayariAndQuotes.schema"),
+  require("./schemas/birthdayReminders.schema"),
 ];
 
 async function initDB() {

@@ -2,11 +2,11 @@ const express = require("express");
 const { connectDB } = require("../../db");
 const { admin } = require("../../middleware");
 
-const motivationQuotesRouter = express.Router();
+const shayariAndQuotesRouter = express.Router();
 
 /**
  * @swagger
- * /auth/quote-of-the-day:
+ * /auth/shayari-quotes:
  *   get:
  *     summary: Get deterministic quote of the day
  *     description: Returns the same quote for all users on the same UTC day
@@ -20,16 +20,29 @@ const motivationQuotesRouter = express.Router();
  *       404:
  *         description: No quotes available
  */
-motivationQuotesRouter.get("/", async (req, res) => {
+shayariAndQuotesRouter.get("/", async (req, res) => {
   try {
-    const db = await connectDB();
-    const col = db.collection("motivation_quotes");
+    const { type } = req.query;
 
-    const count = await col.countDocuments();
-    if (count === 0) {
-      return res.status(404).json({ message: "No quotes available" });
+    // 1️⃣ Hard validation
+    if (!["shayari", "quotes"].includes(type)) {
+      return res.status(400).json({
+        message: "Invalid type. Use 'shayari' or 'quotes'",
+      });
     }
 
+    const db = await connectDB();
+    const col = db.collection("shayari_quotes");
+
+    // 2️⃣ Count only requested type
+    const count = await col.countDocuments({ type });
+    if (count === 0) {
+      return res.status(404).json({
+        message: `No ${type} available`,
+      });
+    }
+
+    // 3️⃣ Deterministic key (UTC day)
     const today = new Date();
     const key =
       today.getUTCFullYear() * 10000 +
@@ -38,8 +51,9 @@ motivationQuotesRouter.get("/", async (req, res) => {
 
     const index = key % count;
 
-    const quote = await col
-      .find({})
+    // 4️⃣ Fetch deterministic document
+    const item = await col
+      .find({ type })
       .sort({ createdAt: 1 })
       .skip(index)
       .limit(1)
@@ -47,8 +61,9 @@ motivationQuotesRouter.get("/", async (req, res) => {
 
     return res.json({
       date: today.toISOString().slice(0, 10),
-      text: quote.text,
-      author: quote.author || "Unknown",
+      type,
+      text: item.text,
+      author: item.author || "Unknown",
     });
   } catch (err) {
     console.error(err);
@@ -56,48 +71,58 @@ motivationQuotesRouter.get("/", async (req, res) => {
   }
 });
 
+
 /**
  * @swagger-ignore
  * 🔐 SECRET ADMIN API (do not expose in docs)
  */
-motivationQuotesRouter.post("/", admin, async (req, res) => {
-  const { text, author, tags } = req.body;
+shayariAndQuotesRouter.post("/", admin, async (req, res) => {
+  const { text, author, tags, type } = req.body;
 
-  if (!text || text.length < 5) {
+  // 1️⃣ Validate input strictly
+  if (!text || text.trim().length < 5) {
     return res.status(400).json({ message: "Text too short" });
+  }
+
+  if (!["shayari", "quotes"].includes(type)) {
+    return res.status(400).json({
+      message: "Invalid type. Use 'shayari' or 'quotes'",
+    });
   }
 
   try {
     const db = await connectDB();
-    const col = db.collection("motivation_quotes");
+    const col = db.collection("shayari_quotes");
 
     await col.insertOne({
       text: text.trim(),
+      type, // ✅ IMPORTANT
       author: author?.trim() || null,
       tags: Array.isArray(tags) ? tags : [],
       userId: null,
       createdAt: new Date(),
     });
 
-    const count = await col.countDocuments();
+    // 2️⃣ Keep max 31 per type (NOT global)
+    const count = await col.countDocuments({ type });
     if (count > 31) {
       const excess = count - 31;
 
-      const oldQuotes = await col
-        .find({})
+      const oldItems = await col
+        .find({ type })
         .sort({ createdAt: 1 })
         .limit(excess)
         .toArray();
 
       await col.deleteMany({
-        _id: { $in: oldQuotes.map((q) => q._id) },
+        _id: { $in: oldItems.map((q) => q._id) },
       });
     }
 
-    return res.status(201).json({ message: "Quote added" });
+    return res.status(201).json({ message: `${type} added` });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: "Duplicate quote" });
+      return res.status(409).json({ message: "Duplicate entry" });
     }
 
     console.error(err);
@@ -105,4 +130,5 @@ motivationQuotesRouter.post("/", admin, async (req, res) => {
   }
 });
 
-module.exports = motivationQuotesRouter;
+
+module.exports = shayariAndQuotesRouter;

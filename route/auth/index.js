@@ -4,7 +4,7 @@ authRoutes.use("/me", require("./me"));
 
 authRoutes.use("/weather-info", require("./weatherInfo"));
 
-authRoutes.use("/quote-of-the-day", require("./quoteOfTheDay"));
+authRoutes.use("/shayari-quotes", require("./shayariAndQuotes"));
 
 authRoutes.use("/birthday-reminder", require("./birthdayReminders"));
 
