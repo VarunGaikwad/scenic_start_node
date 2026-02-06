@@ -12,7 +12,7 @@ const ERROR_CODES = {
 async function validateParent(db, userId, parentId) {
   if (!parentId) return null;
 
-  const parent = await db.collection("favorite_links").findOne({
+  const parent = await db.collection("bookmarks").findOne({
     _id: new ObjectId(parentId),
     userId,
     type: "folder",
@@ -36,7 +36,7 @@ async function checkCircularReference(db, userId, itemId, newParentId) {
       return true; // Circular reference detected
     }
 
-    const parent = await db.collection("favorite_links").findOne({
+    const parent = await db.collection("bookmarks").findOne({
       _id: new ObjectId(currentId),
       userId,
     });
@@ -137,7 +137,7 @@ bookmarksRouter.get("/tree", async (req, res) => {
     const userId = new ObjectId(req.user.id);
 
     const items = await db
-      .collection("favorite_links")
+      .collection("bookmarks")
       .find({ userId })
       .sort({ createdAt: 1 })
       .toArray();
@@ -223,7 +223,7 @@ bookmarksRouter.get("/", async (req, res) => {
       filter.parentId = new ObjectId(parentId);
     }
 
-    const items = await db.collection("favorite_links").find(filter).toArray();
+    const items = await db.collection("bookmarks").find(filter).toArray();
     res.json(items);
   } catch (err) {
     console.error(err);
@@ -277,7 +277,7 @@ bookmarksRouter.get("/", async (req, res) => {
 bookmarksRouter.get("/:id", async (req, res) => {
   try {
     const db = await connectDB();
-    const item = await db.collection("favorite_links").findOne({
+    const item = await db.collection("bookmarks").findOne({
       _id: new ObjectId(req.params.id),
       userId: new ObjectId(req.user.id),
     });
@@ -402,7 +402,7 @@ bookmarksRouter.post("/", async (req, res) => {
       createdAt: new Date(),
     };
 
-    const result = await db.collection("favorite_links").insertOne(newItem);
+    const result = await db.collection("bookmarks").insertOne(newItem);
 
     res.status(201).json({ ...newItem, _id: result.insertedId });
   } catch (err) {
@@ -551,7 +551,7 @@ bookmarksRouter.put("/:id", async (req, res) => {
     if (parentId !== undefined)
       update.parentId = parentId ? new ObjectId(parentId) : null;
 
-    const result = await db.collection("favorite_links").findOneAndUpdate(
+    const result = await db.collection("bookmarks").findOneAndUpdate(
       { _id: itemId, userId },
       { $set: update },
       { returnDocument: "after" }
@@ -638,7 +638,7 @@ bookmarksRouter.delete("/:id", async (req, res) => {
     const db = await connectDB();
 
     // Check if folder has children
-    const hasChildren = await db.collection("favorite_links").findOne({
+    const hasChildren = await db.collection("bookmarks").findOne({
       userId,
       parentId: itemId,
     });
@@ -647,7 +647,7 @@ bookmarksRouter.delete("/:id", async (req, res) => {
       return res.status(400).json({ error: "Folder is not empty" });
     }
 
-    const result = await db.collection("favorite_links").deleteOne({
+    const result = await db.collection("bookmarks").deleteOne({
       _id: itemId,
       userId,
     });

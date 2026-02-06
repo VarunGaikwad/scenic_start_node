@@ -1,5 +1,5 @@
 module.exports = {
-  name: "favorite_links",
+  name: "bookmarks",
   validator: {
     $jsonSchema: {
       bsonType: "object",
