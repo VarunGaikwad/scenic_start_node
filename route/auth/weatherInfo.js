@@ -25,6 +25,57 @@ setInterval(() => {
  */
 temperatureRouter.get("/", async (req, res) => {
   try {
+    const now = Date.now();
+
+    const lat = req.query.lat ? Number(req.query.lat) : null;
+    const lon = req.query.lon ? Number(req.query.lon) : null;
+
+    const hasCoords =
+      Number.isFinite(lat) &&
+      Number.isFinite(lon) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lon >= -180 &&
+      lon <= 180;
+
+    let cacheKey;
+
+    if (hasCoords) {
+      cacheKey = `geo:${lat},${lon}`;
+
+      const cached = cache.get(cacheKey);
+      if (cached && now - cached.timestamp < CACHE_TTL) {
+        return res.status(200).json(cached.data);
+      }
+
+      if (!pending.has(cacheKey)) {
+        const promise = fetchTemperatureByCoords(lat, lon)
+          .then((data) => {
+            if (data) {
+              cache.set(cacheKey, {
+                data,
+                timestamp: Date.now(),
+              });
+            }
+            return data;
+          })
+          .finally(() => pending.delete(cacheKey));
+
+        pending.set(cacheKey, promise);
+      }
+
+      const data = await pending.get(cacheKey);
+
+      if (!data) {
+        return res
+          .status(502)
+          .json({ message: "Unable to fetch temperature data" });
+      }
+
+      return res.status(200).json(data);
+    }
+
+    // 🌐 IP fallback
     let clientIP =
       req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
       req.socket.remoteAddress;
@@ -33,34 +84,32 @@ temperatureRouter.get("/", async (req, res) => {
       return res.status(400).json({ message: "Unable to determine client IP" });
     }
 
-    // normalize IPv6-mapped IPv4
     clientIP = clientIP.replace(/^::ffff:/, "");
 
-    const now = Date.now();
+    cacheKey = `ip:${clientIP}`;
 
-    // 1️⃣ Serve from cache if valid
-    const cached = cache.get(clientIP);
+    const cached = cache.get(cacheKey);
     if (cached && now - cached.timestamp < CACHE_TTL) {
       return res.status(200).json(cached.data);
     }
 
-    // 2️⃣ Deduplicate in-flight requests
-    if (!pending.has(clientIP)) {
-      const promise = fetchTemperature(clientIP)
+    if (!pending.has(cacheKey)) {
+      const promise = fetchTemperatureByIP(clientIP)
         .then((data) => {
           if (data) {
-            cache.set(clientIP, { data, timestamp: Date.now() });
+            cache.set(cacheKey, {
+              data,
+              timestamp: Date.now(),
+            });
           }
           return data;
         })
-        .finally(() => {
-          pending.delete(clientIP);
-        });
+        .finally(() => pending.delete(cacheKey));
 
-      pending.set(clientIP, promise);
+      pending.set(cacheKey, promise);
     }
 
-    const data = await pending.get(clientIP);
+    const data = await pending.get(cacheKey);
 
     if (!data) {
       return res
@@ -74,6 +123,9 @@ temperatureRouter.get("/", async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
+
 
 /* ---------------- HELPERS ---------------- */
 
