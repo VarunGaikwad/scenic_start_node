@@ -11,13 +11,16 @@ module.exports = {
         text: {
           bsonType: "string",
           minLength: 5,
+          pattern: "\\S", // must contain non-whitespace
           description: "Original shayari or quote text",
         },
 
         normalizedText: {
           bsonType: "string",
           minLength: 5,
-          description: "Lowercased + trimmed + space-normalized text for uniqueness",
+          pattern: "\\S",
+          description:
+            "Unicode-normalized (NFKC), lowercased, trimmed, space-collapsed text used for uniqueness",
         },
 
         type: {
@@ -28,7 +31,11 @@ module.exports = {
 
         author: {
           oneOf: [
-            { bsonType: "string", minLength: 1 },
+            {
+              bsonType: "string",
+              minLength: 1,
+              pattern: "\\S",
+            },
             { bsonType: "null" },
           ],
           description: "Optional author name",
@@ -40,8 +47,9 @@ module.exports = {
           items: {
             bsonType: "string",
             minLength: 1,
+            pattern: "\\S",
           },
-          description: "Optional tags",
+          description: "Optional tags (non-empty strings)",
         },
 
         userId: {
@@ -66,7 +74,10 @@ module.exports = {
   indexes: [
     {
       keys: { normalizedText: 1 },
-      options: { unique: true },
+      options: {
+        unique: true,
+        name: "uniq_normalized_text",
+      },
     },
   ],
 };
