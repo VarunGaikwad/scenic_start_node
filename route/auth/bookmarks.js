@@ -48,6 +48,28 @@ async function checkCircularReference(db, userId, itemId, newParentId) {
   return false;
 }
 
+/**
+ * Recursively get all descendant IDs of a folder
+ */
+async function getAllDescendantIds(db, userId, parentId) {
+  const descendants = [];
+  const children = await db.collection("bookmarks").find({
+    userId,
+    parentId: new ObjectId(parentId),
+  }).toArray();
+
+  for (const child of children) {
+    descendants.push(child._id);
+    // Recursively get descendants of this child if it's a folder
+    if (child.type === "folder") {
+      const childDescendants = await getAllDescendantIds(db, userId, child._id.toString());
+      descendants.push(...childDescendants);
+    }
+  }
+
+  return descendants;
+}
+
 const bookmarksRouter = require("express").Router();
 
 /**
@@ -580,7 +602,7 @@ bookmarksRouter.put("/:id", async (req, res) => {
  * /auth/bookmark/{id}:
  *   delete:
  *     summary: Delete a favorite link/folder
- *     description: Delete a bookmark or empty folder (folders with children cannot be deleted)
+ *     description: Delete a bookmark or folder (folders are deleted with all their contents recursively)
  *     tags:
  *       - Favorite Links
  *     security:
@@ -603,14 +625,10 @@ bookmarksRouter.put("/:id", async (req, res) => {
  *                 success:
  *                   type: boolean
  *                   example: true
- *       400:
- *         description: Folder is not empty
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *             example:
- *               error: Folder is not empty
+ *                 deletedCount:
+ *                   type: integer
+ *                   description: Total number of items deleted (including nested items)
+ *                   example: 5
  *       401:
  *         description: Unauthorized
  *         content:
@@ -637,25 +655,44 @@ bookmarksRouter.delete("/:id", async (req, res) => {
   try {
     const db = await connectDB();
 
-    // Check if folder has children
-    const hasChildren = await db.collection("bookmarks").findOne({
+    // Check if item exists and belongs to user
+    const item = await db.collection("bookmarks").findOne({
+      _id: itemId,
       userId,
-      parentId: itemId,
     });
 
-    if (hasChildren) {
-      return res.status(400).json({ error: "Folder is not empty" });
+    if (!item) {
+      return res.status(404).json({ error: "Item not found" });
     }
 
+    let totalDeleted = 0;
+
+    // If it's a folder, get all descendants
+    if (item.type === "folder") {
+      const descendantIds = await getAllDescendantIds(db, userId, itemId.toString());
+      
+      // Delete all descendants
+      if (descendantIds.length > 0) {
+        const descendantsResult = await db.collection("bookmarks").deleteMany({
+          _id: { $in: descendantIds },
+          userId,
+        });
+        totalDeleted += descendantsResult.deletedCount;
+      }
+    }
+
+    // Delete the item itself
     const result = await db.collection("bookmarks").deleteOne({
       _id: itemId,
       userId,
     });
 
-    if (!result.deletedCount)
-      return res.status(404).json({ error: "Item not found" });
+    totalDeleted += result.deletedCount;
 
-    res.json({ success: true });
+    res.json({ 
+      success: true, 
+      deletedCount: totalDeleted 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to delete item" });
