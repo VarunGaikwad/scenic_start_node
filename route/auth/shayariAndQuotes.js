@@ -366,7 +366,7 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
         type: item.type,
         author: item.author?.trim() || null,
         tags: Array.isArray(item.tags) ? item.tags : [],
-        userId: req.user._id,
+        userId: req.user.id,
         createdAt: new Date(),
       });
     }
