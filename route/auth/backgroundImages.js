@@ -179,8 +179,8 @@ const backgroundImagesRouter = express.Router();
  */
 backgroundImagesRouter.post(
   "/",
-  admin,
   upload.single("image"),
+  admin,
   async (req, res) => {
     try {
       const { text_color, overlay_color, overlay_opacity, is_welcome } =
