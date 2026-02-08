@@ -6,17 +6,27 @@ const supabase = require("../../supabase");
 const crypto = require("crypto");
 const { ObjectId } = require("mongodb");
 
+const bucketName = "live wallpaper";
+
 // Configure multer with file size and type validation
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
+    fileSize: 50 * 1024 * 1024, // 10MB max
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "video/mp4",
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only image files are allowed"));
+      cb(new Error("Only image files or MP4 videos are allowed"));
     }
   },
 });
@@ -183,6 +193,8 @@ backgroundImagesRouter.post(
         });
       }
 
+      const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+
       if (!["light", "dark"].includes(text_color)) {
         return res.status(400).json({
           error: "text_color must be 'light' or 'dark'",
@@ -219,7 +231,6 @@ backgroundImagesRouter.post(
 
       // Upload to Supabase
       const fileName = `${Date.now()}_${file.originalname}`;
-      const bucketName = "background image";
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(bucketName)
@@ -243,14 +254,15 @@ backgroundImagesRouter.post(
       if (isWelcomeBool) {
         await db.updateMany(
           { is_welcome: true },
-          { $set: { is_welcome: false, updated_at: new Date() } }
+          { $set: { is_welcome: false, updated_at: new Date() } },
         );
       }
 
       // Insert document with hash and filename for easier deletion
       const doc = {
-        image_url: imageUrl,
-        file_name: fileName, // Store filename for reliable deletion
+        image_url: imageUrl, // rename later if you’re serious
+        media_type: mediaType,
+        file_name: fileName,
         file_hash: hash,
         text_color,
         overlay_color: overlay_color || null,
@@ -281,7 +293,7 @@ backgroundImagesRouter.post(
 
       return res.status(500).json({ error: "Internal server error" });
     }
-  }
+  },
 );
 
 /**
@@ -336,7 +348,9 @@ backgroundImagesRouter.get("/", async (req, res) => {
       filter = { is_welcome: true };
     } else {
       // Existing users get regular wallpapers (not welcome)
-      filter = { $or: [{ is_welcome: false }, { is_welcome: { $exists: false } }] };
+      filter = {
+        $or: [{ is_welcome: false }, { is_welcome: { $exists: false } }],
+      };
     }
 
     const wallpaper = await collection.findOne(filter, {
@@ -358,6 +372,7 @@ backgroundImagesRouter.get("/", async (req, res) => {
 
     return res.status(200).json({
       id: wallpaper._id.toString(),
+      media_type: wallpaper.media_type, // <-- important
       image_url: wallpaper.image_url,
       text_color: wallpaper.text_color,
       overlay_color: wallpaper.overlay_color,
@@ -447,8 +462,6 @@ backgroundImagesRouter.delete("/:id", admin, async (req, res) => {
       return res.status(404).json({ error: "Background image not found" });
     }
 
-    // Delete file from Supabase using stored filename
-    const bucketName = "background image";
     const fileName = doc.file_name; // Use stored filename instead of parsing URL
 
     if (fileName) {
