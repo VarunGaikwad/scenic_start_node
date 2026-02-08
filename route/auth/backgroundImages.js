@@ -270,7 +270,7 @@ backgroundImagesRouter.post(
       });
     } catch (err) {
       console.error("Error creating background image:", err);
-      
+
       // Handle multer file size/type errors
       if (err.message === "Only image files are allowed") {
         return res.status(400).json({ error: err.message });
@@ -278,7 +278,7 @@ backgroundImagesRouter.post(
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(400).json({ error: "File size exceeds 10MB limit" });
       }
-      
+
       return res.status(500).json({ error: "Internal server error" });
     }
   }

@@ -130,7 +130,7 @@ shayariAndQuotesRouter.get("/", async (req, res) => {
 
     // Count documents of requested type
     const count = await col.countDocuments({ type });
-    
+
     if (count === 0) {
       return res.status(404).json({
         message: `No ${type} available`,
@@ -366,7 +366,7 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
         type: item.type,
         author: item.author?.trim() || null,
         tags: Array.isArray(item.tags) ? item.tags : [],
-        userId: null,
+        userId: req.user._id,
         createdAt: new Date(),
       });
     }
