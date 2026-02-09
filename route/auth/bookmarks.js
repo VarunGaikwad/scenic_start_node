@@ -399,7 +399,7 @@ bookmarksRouter.get("/:id", async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 bookmarksRouter.post("/", async (req, res) => {
-  const { type, title, parentId = null, url } = req.body;
+  const { type, title, parentId = null, url, children } = req.body;
   const userId = new ObjectId(req.user.id);
 
   if (!type || !title)
@@ -422,6 +422,7 @@ bookmarksRouter.post("/", async (req, res) => {
       parentId: parentId ? new ObjectId(parentId) : null,
       url: type === "link" ? url : null,
       createdAt: new Date(),
+      children: children || []
     };
 
     const result = await db.collection("bookmarks").insertOne(newItem);
@@ -670,7 +671,7 @@ bookmarksRouter.delete("/:id", async (req, res) => {
     // If it's a folder, get all descendants
     if (item.type === "folder") {
       const descendantIds = await getAllDescendantIds(db, userId, itemId.toString());
-      
+
       // Delete all descendants
       if (descendantIds.length > 0) {
         const descendantsResult = await db.collection("bookmarks").deleteMany({
@@ -689,9 +690,9 @@ bookmarksRouter.delete("/:id", async (req, res) => {
 
     totalDeleted += result.deletedCount;
 
-    res.json({ 
-      success: true, 
-      deletedCount: totalDeleted 
+    res.json({
+      success: true,
+      deletedCount: totalDeleted
     });
   } catch (err) {
     console.error(err);
