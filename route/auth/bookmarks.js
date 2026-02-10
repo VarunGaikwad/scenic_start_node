@@ -53,16 +53,23 @@ async function checkCircularReference(db, userId, itemId, newParentId) {
  */
 async function getAllDescendantIds(db, userId, parentId) {
   const descendants = [];
-  const children = await db.collection("bookmarks").find({
-    userId,
-    parentId: new ObjectId(parentId),
-  }).toArray();
+  const children = await db
+    .collection("bookmarks")
+    .find({
+      userId,
+      parentId: new ObjectId(parentId),
+    })
+    .toArray();
 
   for (const child of children) {
     descendants.push(child._id);
     // Recursively get descendants of this child if it's a folder
     if (child.type === "folder") {
-      const childDescendants = await getAllDescendantIds(db, userId, child._id.toString());
+      const childDescendants = await getAllDescendantIds(
+        db,
+        userId,
+        child._id.toString(),
+      );
       descendants.push(...childDescendants);
     }
   }
@@ -422,7 +429,7 @@ bookmarksRouter.post("/", async (req, res) => {
       parentId: parentId ? new ObjectId(parentId) : null,
       url: type === "link" ? url : null,
       createdAt: new Date(),
-      children: children || []
+      children: children || [],
     };
 
     const result = await db.collection("bookmarks").insertOne(newItem);
@@ -559,12 +566,14 @@ bookmarksRouter.put("/:id", async (req, res) => {
         db,
         userId,
         itemId,
-        parentId
+        parentId,
       );
       if (isCircular) {
         return res
           .status(400)
-          .json({ error: "Cannot move folder - would create circular reference" });
+          .json({
+            error: "Cannot move folder - would create circular reference",
+          });
       }
     }
 
@@ -574,16 +583,17 @@ bookmarksRouter.put("/:id", async (req, res) => {
     if (parentId !== undefined)
       update.parentId = parentId ? new ObjectId(parentId) : null;
 
-    const result = await db.collection("bookmarks").findOneAndUpdate(
-      { _id: itemId, userId },
-      { $set: update },
-      { returnDocument: "after" }
-    );
+    const result = await db
+      .collection("bookmarks")
+      .findOneAndUpdate(
+        { _id: itemId, userId },
+        { $set: update },
+        { returnDocument: "after" },
+      );
 
-    if (!result.value)
-      return res.status(404).json({ error: "Item not found" });
+    if (!result) return res.status(404).json({ error: "Item not found" });
 
-    res.json(result.value);
+    res.json(result);
   } catch (err) {
     if (err.message === ERROR_CODES.INVALID_PARENT) {
       return res.status(400).json({ error: "Invalid parent folder" });
@@ -670,7 +680,11 @@ bookmarksRouter.delete("/:id", async (req, res) => {
 
     // If it's a folder, get all descendants
     if (item.type === "folder") {
-      const descendantIds = await getAllDescendantIds(db, userId, itemId.toString());
+      const descendantIds = await getAllDescendantIds(
+        db,
+        userId,
+        itemId.toString(),
+      );
 
       // Delete all descendants
       if (descendantIds.length > 0) {
@@ -692,7 +706,7 @@ bookmarksRouter.delete("/:id", async (req, res) => {
 
     res.json({
       success: true,
-      deletedCount: totalDeleted
+      deletedCount: totalDeleted,
     });
   } catch (err) {
     console.error(err);
