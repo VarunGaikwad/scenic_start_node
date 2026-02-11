@@ -20,9 +20,8 @@ const EXCEPTION_URL = process.env.EXCEPTION_URL;
 
 function auth(req, res, next) {
   const authHeader = req.headers.authorization;
-
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    if (EXCEPTION_URL.split(";").indexOf(req.originalUrl) > -1) {
+    if (EXCEPTION_URL.split(";").some((url) => req.originalUrl.startsWith(url))) {
       req.user = {
         new_user: true,
       };
