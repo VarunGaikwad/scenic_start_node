@@ -6,10 +6,12 @@ authRoutes.use("/weather-info", require("./weatherInfo"));
 
 authRoutes.use("/shayari-quotes", require("./shayariAndQuotes"));
 
-authRoutes.use("/birthday-reminder", require("./birthdayReminders"));
-
 authRoutes.use("/background-images", require("./backgroundImages"));
 
 authRoutes.use("/bookmark", require("./bookmarks"));
+
+authRoutes.use("/calender-reminder", require("./calenderReminders"));
+
+authRoutes.use("/favorite-icon", require("./favoriteIcons"));
 
 module.exports = authRoutes;

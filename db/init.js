@@ -4,7 +4,8 @@ const schemas = [
   require("./schemas/users.schema"),
   require("./schemas/bookmarks.schema"),
   require("./schemas/shayariAndQuotes.schema"),
-  require("./schemas/birthdayReminders.schema"),
+  require("./schemas/backgroundImages.schema"),
+  require("./schemas/calenderReminder.schema"),
 ];
 
 async function initDB() {
