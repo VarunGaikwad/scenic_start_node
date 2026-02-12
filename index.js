@@ -8,7 +8,22 @@ const apiRouters = require("./route");
 const PORT = process.env.PORT || 9091;
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.ALLOWEDORIGIN || "").split(";");
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  }),
+);
+
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
@@ -17,35 +32,35 @@ app.get("/health", (_req, res) => {
 
 if (process.env.NODE_ENV === "development") {
   const swaggerOptions = {
-  definition: {
-    openapi: "3.0.0",
-    info: {
-      title: "Scenic API",
-      version: "1.0.0",
-      description: "This API are only for scenic webapp use.",
-    },
-    servers: [
-      {
-        url: "http://localhost:8091",
+    definition: {
+      openapi: "3.0.0",
+      info: {
+        title: "Scenic API",
+        version: "1.0.0",
+        description: "This API are only for scenic webapp use.",
       },
-    ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
+      servers: [
+        {
+          url: "http://localhost:8091",
+        },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
         },
       },
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
     },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
-  },
-  apis: ["./route/**/*.js"],
-};
+    apis: ["./route/**/*.js"],
+  };
 
   const swaggerSpec = swaggerJsdoc(swaggerOptions);
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
