@@ -29,10 +29,9 @@ loginRouter.post("/", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    await db.collection("users").updateOne(
-      { _id: user._id },
-      { $set: { lastLoginAt: new Date() } }
-    );
+    await db
+      .collection("users")
+      .updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
 
     const token = jwt.sign(
       {
@@ -45,11 +44,16 @@ loginRouter.post("/", async (req, res) => {
         algorithm: "HS256",
         issuer: process.env.JWT_ISSUER,
         audience: process.env.JWT_AUDIENCE,
-      }
+      },
     );
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 1000 * 60 * 60 * 24,
+    });
 
     return res.status(200).json({
-      token,
       user: {
         id: user._id.toString(),
         email: user.email,

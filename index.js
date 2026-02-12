@@ -4,6 +4,7 @@ const cors = require("cors");
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 const apiRouters = require("./route");
+const cookieParser = require("cookie-parser");
 
 const PORT = process.env.PORT || 9091;
 const app = express();
@@ -26,6 +27,8 @@ app.use(
 );
 
 app.use(express.json());
+
+app.use(cookieParser());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "UP", timestamp: new Date().toISOString() });
