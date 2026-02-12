@@ -8,7 +8,7 @@ const apiRouters = require("./route");
 const PORT = process.env.PORT || 9091;
 const app = express();
 
-const allowedOrigins = (process.env.ALLOWEDORIGIN || "").split(";");
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || "").split(";");
 
 app.use(
   cors({
