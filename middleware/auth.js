@@ -19,7 +19,7 @@ const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
 const EXCEPTION_URL = process.env.EXCEPTION_URL;
 
 function auth(req, res, next) {
-  const token = req.cookies?.accessToken;
+  const token = req.cookies?.ACCESS_TOKEN;
 
   if (!token) {
     if (
