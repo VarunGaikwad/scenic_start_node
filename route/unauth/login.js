@@ -49,7 +49,7 @@ loginRouter.post("/", async (req, res) => {
 
     res.cookie("ACCESS_TOKEN", token, {
       httpOnly: true,
-      secure: false,
+      secure: true,
       sameSite: "none",
       expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10),
     });
