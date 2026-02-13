@@ -46,10 +46,11 @@ loginRouter.post("/", async (req, res) => {
         audience: process.env.JWT_AUDIENCE,
       },
     );
+
     res.cookie("accessToken", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: false,
+      sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24,
     });
 

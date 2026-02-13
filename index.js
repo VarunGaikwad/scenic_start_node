@@ -13,6 +13,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGIN || "").split(";");
 
 app.use(
   cors({
+    credentials: true,
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       if (origin.startsWith("chrome-extension://")) {
