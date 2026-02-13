@@ -47,11 +47,11 @@ loginRouter.post("/", async (req, res) => {
       },
     );
 
-    res.cookie("accessToken", token, {
+    res.cookie("ACCESS_TOKEN", token, {
       httpOnly: true,
       secure: false,
-      sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24,
+      sameSite: "none",
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10),
     });
 
     return res.status(200).json({
