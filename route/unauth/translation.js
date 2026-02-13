@@ -1,34 +1,43 @@
 const express = require("express");
 const translationRouter = express.Router();
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const GEMINI = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-translationRouter.get("/translate", async (req, res) => {
+translationRouter.get("/", async (req, res) => {
   try {
-    const { text, target } = req.query;
+    const { tl, text } = req.query;
 
-    if (!text || !target) {
+    if (!text || !tl) {
       return res.status(400).json({
-        error: "text and target query params are required",
+        error:
+          "Both 'text' and 'tl' (target language) query params are required",
       });
     }
 
-    const prompt = `Translate the following text to ${target}. Only return the translated text.\n\n${text}`;
-
-    const response = await GEMINI.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
+    const model = genAI.getGenerativeModel({
+      model: "gemini-robotics-er-1.5-preview",
     });
+    const prompt = `Translate the following text to ${tl}. Only return the translated text.\n\n${text}`;
 
-    const translated = response.text;
+    // Streamlined: generateContent returns a result object containing the response
+    const result = await model.generateContent(prompt);
+    const translatedText = result.response.text();
 
-    res.json({ translation: translated });
+    return res.json({ translation: translatedText.trim() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Translation failed" });
+    // Specifically catch the "Too Many Requests" error
+    if (err.status === 429 || err.message?.includes("429")) {
+      return res.status(429).json({
+        error: "Rate limit exceeded",
+        message:
+          "The AI is currently busy. Please try again in about 35 seconds.",
+        retryAfter: 35,
+      });
+    }
+
+    console.error("Translation Error Details:", err);
+    return res.status(500).json({ error: "Translation failed internal error" });
   }
 });
 
