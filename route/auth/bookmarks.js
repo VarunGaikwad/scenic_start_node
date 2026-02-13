@@ -406,7 +406,7 @@ bookmarksRouter.get("/:id", async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 bookmarksRouter.post("/", async (req, res) => {
-  const { type, title, parentId = null, url, children } = req.body;
+  const { type, title, parentId = null, url, children, widgetType } = req.body;
   const userId = new ObjectId(req.user.id);
 
   if (!type || !title)
@@ -430,6 +430,7 @@ bookmarksRouter.post("/", async (req, res) => {
       url: type === "link" ? url : null,
       createdAt: new Date(),
       children: children || [],
+      widgetType,
     };
 
     const result = await db.collection("bookmarks").insertOne(newItem);
@@ -569,11 +570,9 @@ bookmarksRouter.put("/:id", async (req, res) => {
         parentId,
       );
       if (isCircular) {
-        return res
-          .status(400)
-          .json({
-            error: "Cannot move folder - would create circular reference",
-          });
+        return res.status(400).json({
+          error: "Cannot move folder - would create circular reference",
+        });
       }
     }
 
