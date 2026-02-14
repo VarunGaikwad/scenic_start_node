@@ -1,67 +1,78 @@
-const API_BASE = '/admin';
-const AUTH_URL = '/unauth/login';
-
-class Api {
-    static get token() {
-        return localStorage.getItem('token');
+class AdminAPI {
+    constructor(baseUrl = '/api') {
+        this.baseUrl = baseUrl;
+        this.token = null;
     }
 
-    static get headers() {
-        return {
+    setToken(token) {
+        this.token = token;
+    }
+
+    async _fetch(url, options = {}) {
+        const headers = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.token}`
+            ...options.headers,
         };
-    }
 
-    static async login(email, password) {
-        const res = await fetch(AUTH_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        if (!res.ok) throw await res.json();
-        return res.json();
-    }
-
-    static async get(resource, params = {}) {
-        const url = new URL(resource, window.location.origin + API_BASE + '/');
-        Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
-
-        const res = await fetch(url, { headers: this.headers });
-        if (res.status === 401) {
-            window.app.logout();
-            throw new Error('Unauthorized');
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
         }
-        if (!res.ok) throw await res.json();
-        return res.json();
+
+        const response = await fetch(`${this.baseUrl}${url}`, { ...options, headers });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(errorData.error || errorData.message || 'API Error');
+        }
+
+        return response.json();
     }
 
-    static async post(resource, data) {
-        const res = await fetch(`${API_BASE}/${resource}`, {
+    // --- Authentication --- //
+
+    async login(email, password) {
+        const data = await this._fetch('/unauth/login', {
             method: 'POST',
-            headers: this.headers,
-            body: JSON.stringify(data)
+            body: JSON.stringify({ email, password, isAdmin: true }),
         });
-        if (!res.ok) throw await res.json();
-        return res.json();
+        return data.token;
     }
 
-    static async put(resource, id, data) {
-        const res = await fetch(`${API_BASE}/${resource}/${id}`, {
+    // --- Bookmarks --- //
+
+    async getBookmarksTree() {
+        return this._fetch('/auth/bookmark/tree');
+    }
+
+    async getBookmarks(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        return this._fetch(`/auth/bookmark?${query}`);
+    }
+
+    async getBookmark(id) {
+        return this._fetch(`/auth/bookmark/${id}`);
+    }
+
+    async createBookmark(data) {
+        return this._fetch('/auth/bookmark', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateBookmark(id, data) {
+        return this._fetch(`/auth/bookmark/${id}`, {
             method: 'PUT',
-            headers: this.headers,
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
         });
-        if (!res.ok) throw await res.json();
-        return res.json();
     }
 
-    static async delete(resource, id) {
-        const res = await fetch(`${API_BASE}/${resource}/${id}`, {
+    async deleteBookmark(id) {
+        return this._fetch(`/auth/bookmark/${id}`, {
             method: 'DELETE',
-            headers: this.headers
         });
-        if (!res.ok) throw await res.json();
-        return res.json();
     }
+
+    // Add methods for other resources (users, shayari, etc.) here
+
 }

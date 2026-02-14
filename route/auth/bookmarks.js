@@ -49,33 +49,28 @@ async function checkCircularReference(db, userId, itemId, newParentId) {
 }
 
 /**
- * Recursively get all descendant IDs of a folder
+ * Recursively gets all descendant bookmark IDs for a given folder.
  */
-async function getAllDescendantIds(db, userId, parentId) {
-  const descendants = [];
-  const children = await db
-    .collection("bookmarks")
-    .find({
-      userId,
-      parentId: new ObjectId(parentId),
-    })
-    .toArray();
+async function getAllDescendantIds(db, userId, folderId) {
+    const ids = [];
+    const queue = [folderId];
+    // This assumes a valid, non-circular tree structure.
+    // We query level by level, so we won't get stuck in loops.
 
-  for (const child of children) {
-    descendants.push(child._id);
-    // Recursively get descendants of this child if it's a folder
-    if (child.type === "folder") {
-      const childDescendants = await getAllDescendantIds(
-        db,
-        userId,
-        child._id.toString(),
-      );
-      descendants.push(...childDescendants);
+    while (queue.length > 0) {
+        const currentFolderId = queue.shift();
+        const children = await db.collection("bookmarks").find({ userId, parentId: currentFolderId }).project({ _id: 1, type: 1 }).toArray();
+
+        for (const child of children) {
+            ids.push(child._id);
+            if (child.type === 'folder') {
+                queue.push(child._id);
+            }
+        }
     }
-  }
-
-  return descendants;
+    return ids;
 }
+
 
 const bookmarksRouter = require("express").Router();
 
@@ -406,7 +401,7 @@ bookmarksRouter.get("/:id", async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 bookmarksRouter.post("/", async (req, res) => {
-  const { type, title, parentId = null, url, children, widgetType } = req.body;
+  const { type, title, parentId = null, url, widgetType } = req.body;
   const userId = new ObjectId(req.user.id);
 
   if (!type || !title)
@@ -429,7 +424,6 @@ bookmarksRouter.post("/", async (req, res) => {
       parentId: parentId ? new ObjectId(parentId) : null,
       url: type === "link" ? url : null,
       createdAt: new Date(),
-      children: children || [],
       widgetType,
     };
 
@@ -548,51 +542,59 @@ bookmarksRouter.put("/:id", async (req, res) => {
   const userId = new ObjectId(req.user.id);
   const itemId = new ObjectId(req.params.id);
 
-  if (!title && !url && parentId === undefined)
+  if (title === undefined && url === undefined && parentId === undefined) {
     return res.status(400).json({ error: "Nothing to update" });
-
-  if (parentId === req.params.id) {
-    return res.status(400).json({ error: "Item cannot be its own parent" });
   }
 
   try {
     const db = await connectDB();
 
-    // Validate parent exists and is a folder
-    if (parentId !== undefined && parentId !== null) {
-      await validateParent(db, userId, parentId);
+    const itemToUpdate = await db.collection("bookmarks").findOne({
+      _id: itemId,
+      userId,
+    });
 
-      // Check for circular reference
-      const isCircular = await checkCircularReference(
-        db,
-        userId,
-        itemId,
-        parentId,
-      );
-      if (isCircular) {
-        return res.status(400).json({
-          error: "Cannot move folder - would create circular reference",
-        });
-      }
+    if (!itemToUpdate) {
+      return res.status(404).json({ error: "Item not found" });
     }
 
-    const update = {};
-    if (title) update.title = title;
-    if (url !== undefined) update.url = url;
-    if (parentId !== undefined)
-      update.parentId = parentId ? new ObjectId(parentId) : null;
+    const update = { $set: {} };
 
-    const result = await db
-      .collection("bookmarks")
-      .findOneAndUpdate(
-        { _id: itemId, userId },
-        { $set: update },
-        { returnDocument: "after" },
-      );
+    if (parentId !== undefined) {
+      if (itemId.toString() === parentId) {
+        return res.status(400).json({ error: "Item cannot be its own parent" });
+      }
 
-    if (!result) return res.status(404).json({ error: "Item not found" });
+      if (parentId !== null) {
+        await validateParent(db, userId, parentId);
+
+        if (itemToUpdate.type === "folder") {
+          const isCircular = await checkCircularReference(db, userId, itemId, parentId);
+          if (isCircular) {
+            return res.status(400).json({
+              error: "Cannot move folder - would create circular reference",
+            });
+          }
+        }
+      }
+      update.$set.parentId = parentId ? new ObjectId(parentId) : null;
+    }
+
+    if (title !== undefined) {
+      update.$set.title = title;
+    }
+    if (url !== undefined && itemToUpdate.type === "link") {
+      update.$set.url = url;
+    }
+
+    const result = await db.collection("bookmarks").findOneAndUpdate(
+      { _id: itemId, userId },
+      update,
+      { returnDocument: "after" }
+    );
 
     res.json(result);
+
   } catch (err) {
     if (err.message === ERROR_CODES.INVALID_PARENT) {
       return res.status(400).json({ error: "Invalid parent folder" });
@@ -600,12 +602,13 @@ bookmarksRouter.put("/:id", async (req, res) => {
     if (err.code === 11000) {
       return res
         .status(400)
-        .json({ error: "Duplicate title in the same folder" });
+        .json({ error: "An item with this title already exists in the target folder." });
     }
     console.error(err);
     res.status(500).json({ error: "Failed to update item" });
   }
 });
+
 
 /**
  * @swagger
@@ -659,58 +662,39 @@ bookmarksRouter.put("/:id", async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 bookmarksRouter.delete("/:id", async (req, res) => {
-  const userId = new ObjectId(req.user.id);
-  const itemId = new ObjectId(req.params.id);
+    const userId = new ObjectId(req.user.id);
+    const itemId = new ObjectId(req.params.id);
 
-  try {
-    const db = await connectDB();
+    try {
+        const db = await connectDB();
 
-    // Check if item exists and belongs to user
-    const item = await db.collection("bookmarks").findOne({
-      _id: itemId,
-      userId,
-    });
-
-    if (!item) {
-      return res.status(404).json({ error: "Item not found" });
-    }
-
-    let totalDeleted = 0;
-
-    // If it's a folder, get all descendants
-    if (item.type === "folder") {
-      const descendantIds = await getAllDescendantIds(
-        db,
-        userId,
-        itemId.toString(),
-      );
-
-      // Delete all descendants
-      if (descendantIds.length > 0) {
-        const descendantsResult = await db.collection("bookmarks").deleteMany({
-          _id: { $in: descendantIds },
-          userId,
+        const itemToDelete = await db.collection("bookmarks").findOne({
+            _id: itemId,
+            userId,
         });
-        totalDeleted += descendantsResult.deletedCount;
-      }
+
+        if (!itemToDelete) {
+            return res.status(404).json({ error: "Item not found" });
+        }
+
+        const idsToDelete = [itemId];
+
+        if (itemToDelete.type === "folder") {
+            const descendantIds = await getAllDescendantIds(db, userId, itemId);
+            idsToDelete.push(...descendantIds);
+        }
+
+        const result = await db.collection("bookmarks").deleteMany({
+            _id: { $in: idsToDelete },
+            userId,
+        });
+
+        res.json({ success: true, deletedCount: result.deletedCount });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to delete item" });
     }
-
-    // Delete the item itself
-    const result = await db.collection("bookmarks").deleteOne({
-      _id: itemId,
-      userId,
-    });
-
-    totalDeleted += result.deletedCount;
-
-    res.json({
-      success: true,
-      deletedCount: totalDeleted,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to delete item" });
-  }
 });
 
 module.exports = bookmarksRouter;

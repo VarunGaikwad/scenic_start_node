@@ -1,55 +1,53 @@
-require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
-const swaggerJsdoc = require("swagger-jsdoc");
-const swaggerUi = require("swagger-ui-express");
-const apiRouters = require("./route");
 const cookieParser = require("cookie-parser");
+const cors = require("cors");
+const { initDB } = require("./db");
+const apiRouters = require("./route");
+const path = require("path");
+require("dotenv").config();
 
-const PORT = process.env.PORT || 9091;
+const PORT = process.env.PORT || 3000;
+
+// Initialize and connect to the database
+initDB();
+
 const app = express();
 
-const allowedOrigins = (process.env.ALLOWED_ORIGIN || "").split(";");
+// Middleware setup
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
+// CORS configuration for development and production
+const whitelist = ["http://localhost:3000", process.env.FRONTEND_URL].filter(Boolean);
 app.use(
   cors({
-    credentials: true,
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (origin.startsWith("chrome-extension://")) {
-        return callback(null, true);
+    origin: (origin, callback) => {
+      if (!origin || whitelist.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
       }
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      callback(new Error("Not allowed by CORS"));
     },
+    credentials: true,
   }),
 );
 
-app.use(express.static("public"));
-app.use(express.json());
+// Serve static files (admin panel)
+app.use("/admin", express.static(path.join(__dirname, "public/admin")));
 
-app.use(cookieParser());
-
-app.get("/health", (_req, res) => {
-  res.json({ status: "UP", timestamp: new Date().toISOString() });
-});
-
+// Development-only middleware (Swagger docs)
 if (process.env.NODE_ENV === "development") {
+  const swaggerJsdoc = require("swagger-jsdoc");
+  const swaggerUi = require("swagger-ui-express");
+
   const swaggerOptions = {
     definition: {
       openapi: "3.0.0",
       info: {
-        title: "Scenic API",
+        title: "API Documentation",
         version: "1.0.0",
-        description: "This API are only for scenic webapp use.",
       },
-      servers: [
-        {
-          url: "http://localhost:8091",
-        },
-      ],
       components: {
         securitySchemes: {
           bearerAuth: {
@@ -73,7 +71,8 @@ if (process.env.NODE_ENV === "development") {
   console.log("Swagger docs enabled at /docs (development only)");
 }
 
-app.use("/", apiRouters);
+// API Routes - All API routes will be prefixed with /api
+app.use("/api", apiRouters);
 
 module.exports = app;
 
