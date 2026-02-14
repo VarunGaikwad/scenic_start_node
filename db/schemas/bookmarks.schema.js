@@ -11,6 +11,7 @@ module.exports = {
         parentId: { bsonType: ["objectId", "null"] },
         url: { bsonType: "string", pattern: "^https?://" },
         createdAt: { bsonType: "date" },
+        widgetType: { bsonType: "string" },
       },
       oneOf: [
         {

@@ -4,6 +4,7 @@ const cors = require("cors");
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 const apiRouters = require("./route");
+const cookieParser = require("cookie-parser");
 
 const PORT = process.env.PORT || 9091;
 const app = express();
@@ -12,6 +13,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGIN || "").split(";");
 
 app.use(
   cors({
+    credentials: true,
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       if (origin.startsWith("chrome-extension://")) {
@@ -27,6 +29,8 @@ app.use(
 
 app.use(express.static("public"));
 app.use(express.json());
+
+app.use(cookieParser());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "UP", timestamp: new Date().toISOString() });

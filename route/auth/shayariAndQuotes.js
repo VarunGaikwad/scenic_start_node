@@ -139,18 +139,16 @@ shayariAndQuotesRouter.get("/", async (req, res) => {
 
     // Generate deterministic index based on UTC date
     // Same date = same quote for all users
-    const today = new Date();
-    const key =
-      today.getUTCFullYear() * 10000 +
-      (today.getUTCMonth() + 1) * 100 +
-      today.getUTCDate();
+    const now = new Date();
 
-    const index = key % count;
+    // 15-minute deterministic bucket (UTC-based)
+    const minutes = Math.floor(now.getTime() / (1000 * 60));
+    const intervalKey = Math.floor(minutes / 15);
+    const index = intervalKey % count;
 
-    // Fetch deterministic document
     const item = await col
       .find({ type })
-      .sort({ createdAt: 1 })
+      .sort({ _id: 1 }) // stable ordering
       .skip(index)
       .limit(1)
       .next();
@@ -162,7 +160,7 @@ shayariAndQuotesRouter.get("/", async (req, res) => {
     }
 
     return res.json({
-      date: today.toISOString().slice(0, 10),
+      date: now.toISOString(),
       type,
       text: item.text,
       author: item.author || "Unknown",
@@ -432,7 +430,7 @@ shayariAndQuotesRouter.post("/", admin, async (req, res) => {
         const excess = count - 31;
         const idsToDelete = await col
           .find({ type })
-          .sort({ createdAt: 1 })
+          .sort({ _id: 1 })
           .limit(excess)
           .project({ _id: 1 })
           .toArray();

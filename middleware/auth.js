@@ -19,20 +19,18 @@ const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
 const EXCEPTION_URL = process.env.EXCEPTION_URL;
 
 function auth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    if (EXCEPTION_URL.split(";").some((url) => req.originalUrl.startsWith(url))) {
-      req.user = {
-        new_user: true,
-      };
-      next();
-      return;
-    } else {
-      return res.status(401).json({ message: "Missing authorization token" });
-    }
-  }
+  const token = req.cookies?.ACCESS_TOKEN;
 
-  const token = authHeader.slice(7);
+  if (!token) {
+    if (
+      EXCEPTION_URL.split(";").some((url) => req.originalUrl.startsWith(url))
+    ) {
+      req.user = { new_user: true };
+      return next();
+    }
+
+    return res.status(401).json({ message: "Missing authorization token" });
+  }
 
   try {
     const payload = jwt.verify(token, JWT_SECRET, {
