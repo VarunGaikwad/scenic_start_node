@@ -1,4 +1,5 @@
 module.exports = {
   ...require("./auth"),
-  ...require("./admin")
+  ...require("./admin"),
+  ...require("./rateLimiter"),
 };
