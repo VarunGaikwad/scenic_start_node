@@ -37,6 +37,30 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * GET /admin/shayari-quotes/:id
+ * Get a single item by ID
+ */
+router.get("/:id", async (req, res) => {
+    const id = req.params.id;
+
+    try {
+        const db = await connectDB();
+        const item = await db
+            .collection("shayari_quotes")
+            .findOne({ _id: new ObjectId(id) });
+
+        if (!item) {
+            return res.status(404).json({ error: "Item not found" });
+        }
+
+        res.json(item);
+    } catch (err) {
+        console.error("Error fetching item:", err);
+        res.status(500).json({ error: "Failed to fetch item" });
+    }
+});
+
+/**
  * POST /admin/shayari-quotes
  * Create a new item
  */

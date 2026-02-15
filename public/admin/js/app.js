@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${!isFolder ? `<small class="text-muted ms-2">${node.url}</small>` : ''}
                     </span>
                     <div>
-                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="window.app.editBookmark('${node._id}')"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="window.app.editItem('bookmarks', '${node._id}')"><i class="bi bi-pencil"></i></button>
                         <button class="btn btn-sm btn-outline-danger" onclick="window.app.deleteBookmark('${node._id}')"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
@@ -217,7 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const fields = fieldConfig[resource];
         if (!fields) return alert('Form not defined for this resource');
 
-        const formHtml = `
+        const formHtml = `<form id="resource-form" data-resource="${resource}">
+                <input type="hidden" id="item-id" value="${isEditing ? item._id : ''}">
                 ${fields.map(field => {
                     let value = isEditing && item[field.name] !== undefined ? item[field.name] : '';
                     if (field.type === 'date' && value) value = new Date(value).toISOString().split('T')[0];
@@ -386,9 +387,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     'users': api.getUser.bind(api),
                     'shayari-quotes': api.getShayariAndQuote.bind(api),
                     'calendar-reminders': api.getCalendarReminder.bind(api),
+                    'bookmarks': api.getBookmark.bind(api),
                 };
                 const item = await apiGetters[resource](id);
-                showForm(resource, item);
+                if (resource === 'bookmarks') {
+                    showBookmarkForm(item);
+                } else {
+                    showForm(resource, item);
+                }
             } catch (err) {
                 alert(`Error: ${err.message}`);
             }
@@ -407,14 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (err) {
                     alert(`Error: ${err.message}`);
                 }
-            }
-        },
-        editBookmark: async (id) => {
-            try {
-                const bookmark = await api.getBookmark(id);
-                showBookmarkForm(bookmark);
-            } catch (err) {
-                alert(`Error: ${err.message}`);
             }
         },
         deleteBookmark: async (id) => {
