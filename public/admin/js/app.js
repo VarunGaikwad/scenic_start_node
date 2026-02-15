@@ -91,15 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (resource) {
                 case 'users':
                     data = await api.getUsers();
-                    renderGeneric(resource, data, ['name', 'email']);
+                    renderGeneric(resource, data, ['name', 'email', 'role', 'status', 'createdAt']);
                     break;
                 case 'bookmarks':
-                    data = await api.getBookmarksTree();
-                    renderBookmarksTree(data);
+                    data = await api.getBookmarks();
+                    renderGeneric(resource, data, ['title', 'url', 'type']);
                     break;
                 case 'shayari-quotes':
                     data = await api.getShayariAndQuotes();
-                    renderGeneric(resource, data, ['content', 'author', 'category']);
+                    renderGeneric(resource, data, ['content', 'author', 'category', 'tags', 'createdAt']);
                     break;
                 case 'calendar-reminders':
                     data = await api.getCalendarReminders();
