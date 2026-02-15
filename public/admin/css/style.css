@@ -37,6 +37,50 @@
     color: inherit;
 }
 
+/* Full Screen Layout Fixes */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* Prevent body scroll */
+}
+
+#admin-ui {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container-fluid {
+    height: 100%;
+    padding: 0;
+}
+
+.row {
+    height: 100%;
+    margin: 0;
+}
+
+main {
+    height: calc(100vh - 48px); /* Subtract header height roughly */
+    overflow-y: hidden; /* Main container hidden, scroll content inside */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Make the table container scrollable */
+#main-view {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
+/* Make form view scrollable too if needed */
+#form-view {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 20px;
+}
+
 /* Bookmark Tree Styling */
 .bookmark-tree .list-group-item {
     border: 1px solid rgba(0,0,0,.125);

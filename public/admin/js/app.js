@@ -91,24 +91,27 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (resource) {
                 case 'users':
                     data = await api.getUsers();
-                    renderGeneric(resource, data, ['name', 'email', 'role', 'status', 'createdAt']);
+                    renderGeneric(resource, data, ['email', 'role', 'status', 'emailVerified', 'lastLoginAt', 'createdAt']);
                     break;
                 case 'bookmarks':
                     data = await api.getBookmarks();
-                    renderGeneric(resource, data, ['title', 'url', 'type']);
+                    renderGeneric(resource, data, ['title', 'url', 'type', 'widgetType', 'parentId', 'createdAt']);
                     break;
                 case 'shayari-quotes':
                     data = await api.getShayariAndQuotes();
-                    renderGeneric(resource, data, ['content', 'author', 'category', 'tags', 'createdAt']);
+                    renderGeneric(resource, data, ['text', 'author', 'type', 'tags', 'createdAt']);
                     break;
                 case 'calendar-reminders':
                     data = await api.getCalendarReminders();
-                    data.forEach(item => item.date = new Date(item.date).toLocaleDateString());
-                    renderGeneric(resource, data, ['title', 'date', 'time']);
+                    data.forEach(item => {
+                        if(item.dueDate) item.dueDate = new Date(item.dueDate).toLocaleDateString();
+                        if(item.reminderTime) item.reminderTime = new Date(item.reminderTime).toLocaleString();
+                    });
+                    renderGeneric(resource, data, ['title', 'type', 'priority', 'completed', 'dueDate', 'reminderTime', 'location']);
                     break;
                 case 'background-images':
                     data = await api.getBackgroundImages();
-                    renderGeneric(resource, data, ['image_url']);
+                    renderGeneric(resource, data, ['image_url', 'text_color', 'overlay_color', 'overlay_opacity', 'is_welcome', 'created_at']);
                     break;
                 default:
                     mainView.innerHTML = `<p>Management for ${resource} is not yet implemented.</p>`;
@@ -174,33 +177,68 @@ document.addEventListener('DOMContentLoaded', () => {
         const isEditing = item !== null;
         const fieldConfig = {
             'users': [
-                { name: 'name', label: 'Name', type: 'text', required: true },
                 { name: 'email', label: 'Email', type: 'email', required: true },
                 { name: 'password', label: 'Password', type: 'password', required: !isEditing, placeholder: isEditing ? 'Leave blank to keep current password' : '' },
+                { name: 'role', label: 'Role', type: 'select', options: ['user', 'admin'], required: true },
+                { name: 'status', label: 'Status', type: 'select', options: ['active', 'pending', 'blocked'], required: true },
+                { name: 'emailVerified', label: 'Email Verified', type: 'checkbox' }
             ],
             'shayari-quotes': [
-                { name: 'content', label: 'Content', type: 'textarea', required: true },
+                { name: 'text', label: 'Text', type: 'textarea', required: true },
                 { name: 'author', label: 'Author', type: 'text' },
-                { name: 'category', label: 'Category', type: 'text', required: true },
+                { name: 'type', label: 'Type', type: 'select', options: ['shayari', 'quotes'], required: true },
+                { name: 'tags', label: 'Tags (comma separated)', type: 'text' }
             ],
             'calendar-reminders': [
                 { name: 'title', label: 'Title', type: 'text', required: true },
-                { name: 'date', label: 'Date', type: 'date', required: true },
-                { name: 'time', label: 'Time', type: 'time' },
+                { name: 'type', label: 'Type', type: 'select', options: ['task', 'event', 'birthday'], required: true },
+                { name: 'description', label: 'Description', type: 'textarea' },
+                { name: 'dueDate', label: 'Due Date', type: 'date' },
+                { name: 'reminderTime', label: 'Reminder Time', type: 'datetime-local' },
+                { name: 'priority', label: 'Priority', type: 'select', options: ['low', 'medium', 'high'] },
+                { name: 'location', label: 'Location', type: 'text' },
+                { name: 'completed', label: 'Completed', type: 'checkbox' }
             ],
             'background-images': [
                 { name: 'image_url', label: 'Image URL', type: 'url', required: true },
+                { name: 'text_color', label: 'Text Color', type: 'select', options: ['light', 'dark'], required: true },
+                { name: 'overlay_color', label: 'Overlay Color (Hex)', type: 'color' },
+                { name: 'overlay_opacity', label: 'Overlay Opacity (0-1)', type: 'number', step: '0.1', min: '0', max: '1' },
+                { name: 'is_welcome', label: 'Is Welcome Screen', type: 'checkbox' }
             ],
+            'bookmarks': [
+                { name: 'title', label: 'Title', type: 'text', required: true },
+                { name: 'url', label: 'URL', type: 'url' },
+                { name: 'type', label: 'Type', type: 'select', options: ['link', 'folder'], required: true },
+                { name: 'parentId', label: 'Parent ID', type: 'text' },
+                { name: 'widgetType', label: 'Widget Type', type: 'text' }
+            ]
         };
         const fields = fieldConfig[resource];
         if (!fields) return alert('Form not defined for this resource');
 
         const formHtml = `
-            <form id="resource-form" data-resource="${resource}">
-                <input type="hidden" id="item-id" value="${isEditing ? item._id : ''}">
                 ${fields.map(field => {
-                    let value = isEditing && item[field.name] ? item[field.name] : '';
+                    let value = isEditing && item[field.name] !== undefined ? item[field.name] : '';
                     if (field.type === 'date' && value) value = new Date(value).toISOString().split('T')[0];
+                    if (field.type === 'datetime-local' && value) value = new Date(value).toISOString().slice(0, 16);
+                    if (field.name === 'tags' && Array.isArray(value)) value = value.join(', ');
+                    
+                    if (field.type === 'select') {
+                         return `<div class="mb-3">
+                            <label for="${field.name}" class="form-label">${field.label}</label>
+                            <select class="form-select" id="${field.name}" ${field.required ? 'required' : ''}>
+                                ${field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                            </select>
+                         </div>`;
+                    }
+                    if (field.type === 'checkbox') {
+                         return `<div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="${field.name}" ${value ? 'checked' : ''}>
+                            <label class="form-check-label" for="${field.name}">${field.label}</label>
+                         </div>`;
+                    }
+
                     return `<div class="mb-3">
                         <label for="${field.name}" class="form-label">${field.label}</label>
                         <${field.type === 'textarea' ? 'textarea' : 'input'} 
@@ -208,9 +246,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             class="form-control" 
                             id="${field.name}" 
                             ${field.required ? 'required' : ''}
+                            ${field.step ? `step="${field.step}"` : ''}
+                            ${field.min ? `min="${field.min}"` : ''}
+                            ${field.max ? `max="${field.max}"` : ''}
                             placeholder="${field.placeholder || ''}"
+                            ${field.type !== 'textarea' ? `value="${value}"` : ''}
                             >${field.type === 'textarea' ? value : ''}</${field.type === 'textarea' ? 'textarea' : 'input'}>
-                        ${field.type !== 'textarea' ? `<script>document.getElementById('${field.name}').value = '${value}';</script>` : ''}
                     </div>`
                 }).join('')}
                 <button type="submit" class="btn btn-primary">${isEditing ? 'Update' : 'Create'}</button>
@@ -288,7 +329,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const fields = Array.from(e.target.elements).filter(el => el.id);
         fields.forEach(field => {
             if (field.type === 'password' && !field.value) return; // Skip empty password on edit
-            data[field.id] = field.value;
+            if (field.type === 'checkbox') {
+                data[field.id] = field.checked;
+            } else if (field.id === 'tags') {
+                data[field.id] = field.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+            } else {
+                data[field.id] = field.value;
+            }
         });
         delete data['item-id']; // clean up data object
 
