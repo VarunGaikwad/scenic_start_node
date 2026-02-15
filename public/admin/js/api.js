@@ -38,6 +38,36 @@ class AdminAPI {
         return data.token;
     }
 
+    // --- Users --- //
+    async getUsers() {
+        return this._fetch('/auth/user');
+    }
+
+    async getUser(id) {
+        return this._fetch(`/auth/user/${id}`);
+    }
+
+    async createUser(data) {
+        return this._fetch('/auth/user', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateUser(id, data) {
+        return this._fetch(`/auth/user/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteUser(id) {
+        return this._fetch(`/auth/user/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+
     // --- Bookmarks --- //
 
     async getBookmarksTree() {
@@ -73,6 +103,81 @@ class AdminAPI {
         });
     }
 
-    // Add methods for other resources (users, shayari, etc.) here
+    // --- Shayari & Quotes --- //
+    async getShayariAndQuotes() {
+        return this._fetch('/auth/shayari-quote');
+    }
 
+    async getShayariAndQuote(id) {
+        return this._fetch(`/auth/shayari-quote/${id}`);
+    }
+
+    async createShayariAndQuote(data) {
+        return this._fetch('/auth/shayari-quote', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateShayariAndQuote(id, data) {
+        return this._fetch(`/auth/shayari-quote/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteShayariAndQuote(id) {
+        return this._fetch(`/auth/shayari-quote/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    // --- Calendar Reminders --- //
+    async getCalendarReminders() {
+        return this._fetch('/auth/calendar-reminder');
+    }
+
+    async getCalendarReminder(id) {
+        return this._fetch(`/auth/calendar-reminder/${id}`);
+    }
+
+    async createCalendarReminder(data) {
+        return this._fetch('/auth/calendar-reminder', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateCalendarReminder(id, data) {
+        return this._fetch(`/auth/calendar-reminder/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteCalendarReminder(id) {
+        return this._fetch(`/auth/calendar-reminder/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    // --- Background Images --- //
+    async getBackgroundImages() {
+        return this._fetch('/auth/background-image');
+    }
+
+    async createBackgroundImage(data) {
+        // Assuming image uploads are handled via a different mechanism (e.g., multipart/form-data)
+        // This is a placeholder for creating a background image record
+        return this._fetch('/auth/background-image', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteBackgroundImage(id) {
+        return this._fetch(`/auth/background-image/${id}`, {
+            method: 'DELETE',
+        });
+    }
 }

@@ -20,11 +20,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // CORS configuration for development and production
-const whitelist = ["http://localhost:3000", process.env.FRONTEND_URL].filter(Boolean);
+const whitelist = process.env.FRONTEND_URLS
+  ? process.env.FRONTEND_URLS.split(";")
+  : [];
+// const whitelist = ["http://localhost:3000", process.env.FRONTEND_URL].filter(Boolean);
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || whitelist.indexOf(origin) !== -1) {
+      console.log("Incoming origin:", origin);
+      console.log("Whitelist:", whitelist);
+
+      if (!origin || whitelist.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
