@@ -1,7 +1,7 @@
 const express = require("express");
 const musicTrackerRouter = express.Router();
 
-const STALE_TIMEOUT = 5000; // 5 seconds
+const STALE_TIMEOUT = 6 * 60 * 60 * 1000; // 6 hour
 
 const DB = {
   current: null,
