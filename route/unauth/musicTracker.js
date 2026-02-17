@@ -38,6 +38,7 @@ musicTrackerRouter.post("/", (req, res) => {
     currentTime,
     totalTime,
     isPlaying,
+    songUrl,
   } = req.body;
 
   // Validate types
@@ -72,6 +73,7 @@ musicTrackerRouter.post("/", (req, res) => {
       name: normalizedName,
       artist: normalizedArtist,
       imageUrl,
+      songUrl,
     };
   }
 
@@ -85,6 +87,7 @@ musicTrackerRouter.post("/", (req, res) => {
     totalTime,
     isPlaying,
     updatedAt: Date.now(),
+    songUrl,
   };
 
   DB.current = song;

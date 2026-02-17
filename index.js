@@ -20,6 +20,7 @@ app.use(cookieParser());
 const whitelist = process.env.FRONTEND_URLS
   ? process.env.FRONTEND_URLS.split(";")
   : [];
+
 app.use(
   cors({
     origin: (origin, callback) => {
