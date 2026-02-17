@@ -1,12 +1,12 @@
 const express = require("express");
 const musicTrackerRouter = express.Router();
 
-const STALE_TIMEOUT = 5000;
+const STALE_TIMEOUT = 5000; // 5 seconds
 
 const DB = {
   current: null,
-  songs: {},
-  listeningStats: {},
+  songs: {}, // Stores metadata for favorites
+  listeningStats: {}, // Stores listening seconds
 };
 
 musicTrackerRouter.get("/", (_req, res) => {
@@ -25,33 +25,74 @@ musicTrackerRouter.get("/", (_req, res) => {
 });
 
 musicTrackerRouter.post("/", (req, res) => {
-  const { name, artist, imageUrl = "" } = req.body;
+  const {
+    name,
+    artist,
+    imageUrl = "",
+    currentTime,
+    totalTime,
+    isPlaying,
+  } = req.body;
 
-  if (typeof name !== "string" || typeof artist !== "string") {
-    return res.status(400).json({ error: "Invalid input" });
+  // Validate types
+  if (
+    typeof name !== "string" ||
+    typeof artist !== "string" ||
+    typeof currentTime !== "number" ||
+    typeof totalTime !== "number" ||
+    typeof isPlaying !== "boolean"
+  ) {
+    return res.status(400).json({ error: "Invalid input types" });
   }
 
   const normalizedName = name.trim();
   const normalizedArtist = artist.trim();
+
+  if (!normalizedName || !normalizedArtist) {
+    return res.status(400).json({ error: "Name and artist required" });
+  }
+
+  // Validate time bounds
+  if (currentTime < 0 || totalTime <= 0 || currentTime > totalTime) {
+    return res.status(400).json({ error: "Invalid time values" });
+  }
+
   const songId = `${normalizedName.toLowerCase()}-${normalizedArtist.toLowerCase()}`;
 
+  // Store song metadata for favorites
+  if (!DB.songs[songId]) {
+    DB.songs[songId] = {
+      id: songId,
+      name: normalizedName,
+      artist: normalizedArtist,
+      imageUrl,
+    };
+  }
+
+  // Update current song
   const song = {
     id: songId,
     name: normalizedName,
     artist: normalizedArtist,
     imageUrl,
+    currentTime,
+    totalTime,
+    isPlaying,
     updatedAt: Date.now(),
   };
 
   DB.current = song;
 
-  // Optional: track total listening time (1 sec per call)
-  DB.listeningStats[songId] = (DB.listeningStats[songId] || 0) + 1;
+  // Track listening time only if playing
+  if (isPlaying) {
+    DB.listeningStats[songId] = (DB.listeningStats[songId] || 0) + 1; // 1 sec per call
+  }
 
   return res.status(200).json({ message: "Updated" });
 });
 
-musicTrackerRouter.get("/favorites", (req, res) => {
+// Favorites endpoint (top 5 by total listening seconds)
+musicTrackerRouter.get("/favorites", (_req, res) => {
   const topFive = Object.entries(DB.listeningStats)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
