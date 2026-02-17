@@ -23,6 +23,7 @@ const whitelist = process.env.FRONTEND_URLS
 app.use(
   cors({
     origin: (origin, callback) => {
+      console.log("Origin", origin);
       if (
         !origin ||
         whitelist.includes(origin) ||
@@ -30,7 +31,6 @@ app.use(
       ) {
         callback(null, true);
       } else {
-        p;
         callback(new Error("Not allowed by CORS"));
       }
     },
