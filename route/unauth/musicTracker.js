@@ -21,6 +21,12 @@ musicTrackerRouter.get("/", (_req, res) => {
     return res.status(404).json({ message: "No song playing" });
   }
 
+  const IS_PLAYING_TIMEOUT = 30 * 1000;
+
+  if (DB.current.isPlaying && now - DB.current.updatedAt > IS_PLAYING_TIMEOUT) {
+    DB.current.isPlaying = false;
+  }
+
   return res.status(200).json(DB.current);
 });
 
