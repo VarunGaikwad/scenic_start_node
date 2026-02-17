@@ -9,26 +9,20 @@ const path = require("path");
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize and connect to the database
 initDB();
 
 const app = express();
 
-// Middleware setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// CORS configuration for development and production
 const whitelist = process.env.FRONTEND_URLS
   ? process.env.FRONTEND_URLS.split(";")
   : [];
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log("Incoming origin:", origin);
-      console.log("Whitelist:", whitelist);
-
       if (
         !origin ||
         whitelist.includes(origin) ||
@@ -36,6 +30,7 @@ app.use(
       ) {
         callback(null, true);
       } else {
+        p;
         callback(new Error("Not allowed by CORS"));
       }
     },
