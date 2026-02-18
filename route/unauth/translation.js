@@ -3,9 +3,10 @@ const crypto = require("crypto");
 const { GoogleGenAI } = require("@google/genai");
 
 const translationRouter = express.Router();
-const genAI = new GoogleGenAI({});
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); // ✅ add apiKey
 
-const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.0-flash"; // ✅ fixed model name
+
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const MAX_TEXT_LENGTH = 5000;
 const REQUEST_TIMEOUT = 15000;
@@ -81,8 +82,6 @@ translationRouter.get("/", async (req, res) => {
 
     const translationPromise = genAI.models.generateContent({
       model: MODEL_NAME,
-      systemInstruction:
-        "You are a professional translation engine. Return ONLY the translated text. Do NOT explain or add quotes.",
       contents: `Translate from ${source.label} to ${target.label}: "${text}" ${target.extraInstruction || ""}`,
     });
 
