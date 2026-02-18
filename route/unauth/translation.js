@@ -1,15 +1,15 @@
 const express = require("express");
 const crypto = require("crypto");
 const translationRouter = express.Router();
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // -----------------------------
 // CONFIG
 // -----------------------------
 
-const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
 const MAX_TEXT_LENGTH = 5000;
 const REQUEST_TIMEOUT = 15000; // 15 seconds
@@ -144,9 +144,26 @@ Text:
 ${text}
 """
 `;
-
+    const translationPromise = genAI.models.generateContent({
+      model: MODEL_NAME,
+      systemInstruction: `You are a professional translation engine. Return ONLY the translated text. Do NOT explain or add quotes.`,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Translate from ${source.label} to ${target.label}: "${text}" ${target.extraInstruction || ""}`,
+            },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0.2,
+        topP: 0.9,
+      },
+    });
     const result = await Promise.race([
-      model.generateContent(prompt),
+      translationPromise,
       new Promise((_, reject) =>
         setTimeout(
           () => reject(new Error("Translation timeout")),
@@ -155,7 +172,7 @@ ${text}
       ),
     ]);
 
-    const translatedText = result.response.text().trim();
+    const translatedText = result.text.trim();
 
     // -----------------------------
     // STORE IN CACHE
