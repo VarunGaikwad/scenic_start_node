@@ -5,7 +5,7 @@ const { GoogleGenAI } = require("@google/genai");
 const translationRouter = express.Router();
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); // ✅ add apiKey
 
-const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.0-flash"; // ✅ fixed model name
+const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-robotics-er-1.5-preview"; // ✅ fixed model name
 
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const MAX_TEXT_LENGTH = 5000;
@@ -82,7 +82,20 @@ translationRouter.get("/", async (req, res) => {
 
     const translationPromise = genAI.models.generateContent({
       model: MODEL_NAME,
-      contents: `Translate from ${source.label} to ${target.label}: "${text}" ${target.extraInstruction || ""}`,
+      contents: `You are a strict translation engine.
+                  Translate the text exactly from ${source.label} to ${target.label}.
+                  
+                  CRITICAL RULES:
+                  - Output ONLY the translated text.
+                  - No explanations.
+                  - No original text.
+                  - No romaji.
+                  - No extra lines.
+                  - No formatting.
+                  - No quotation marks.
+                  - No comments.
+                    
+                  Text: ${text} ${target.extraInstruction || ""}`,
     });
 
     const result = await Promise.race([
