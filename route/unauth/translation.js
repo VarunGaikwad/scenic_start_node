@@ -9,7 +9,7 @@ const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-robotics-er-1.5-preview";
 
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 const MAX_TEXT_LENGTH = 5000;
-const REQUEST_TIMEOUT = 15000;
+const REQUEST_TIMEOUT = 60 * 1000;
 
 const LANGUAGES = {
   en: { label: "English" },
