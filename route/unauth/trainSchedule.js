@@ -1,7 +1,8 @@
 const express = require("express");
 const supabase = require("../../supabase");
 const BUCKET_NAME = "LRT";
-
+const Holidays = require("date-holidays");
+const hd = new Holidays("JP");
 const trainScheduleRoute = express.Router();
 
 let scheduleCache = null;
@@ -47,10 +48,13 @@ trainScheduleRoute.get("/", async (req, res) => {
 
     const originIndex = stations.indexOf(origin);
     const destinationIndex = stations.indexOf(destination);
-    const bound = originIndex > destinationIndex ? "OUTBOUND" : "INBOUND";
+    const bound = originIndex < destinationIndex ? "OUTBOUND" : "INBOUND";
 
     const dateObj = new Date(date);
-    const isHoliday = dateObj.getDay() === 0 || dateObj.getDay() === 6; // optionally add your holiday logic
+    const isHoliday =
+      dateObj.getDay() === 0 ||
+      dateObj.getDay() === 6 ||
+      hd.isHoliday(dateObj).length > 0;
 
     const dayType = isHoliday ? "HOLIDAY" : "WEEKDAY";
     const temp = schedule[bound][dayType];
