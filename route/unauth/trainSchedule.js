@@ -1,40 +1,24 @@
 const express = require("express");
 const trainScheduleRoute = express.Router();
 const Holidays = require("date-holidays");
+
 const hd = new Holidays("JP");
-const { buildSchedule } = require("../../data");
 const holidayCache = {};
 
-let schedule = {};
-let stations = [];
-let stationIndexMap = {};
+const schedule = require("../../data/train-schedule.json");
 
-(async () => {
-  try {
-    schedule = await buildSchedule();
-    stations = Object.keys(schedule.OUTBOUND.WEEKDAY);
-    stations.forEach((station, index) => {
-      stationIndexMap[station] = index;
-    });
-    console.log("Schedule builder done");
-  } catch (err) {
-    console.error("Schedule build failed:", err);
-  }
-})();
+const stations = Object.keys(schedule.OUTBOUND.WEEKDAY);
+
+const stationIndexMap = {};
+stations.forEach((station, index) => {
+  stationIndexMap[station] = index;
+});
 
 trainScheduleRoute.get("/stations", (req, res) => {
-  if (!schedule.OUTBOUND) {
-    return res.status(503).json({ error: "Schedule not ready yet" });
-  }
-
   res.status(200).json(stations);
 });
 
 trainScheduleRoute.get("/", (req, res) => {
-  if (!schedule.OUTBOUND) {
-    return res.status(503).json({ error: "Schedule not ready yet" });
-  }
-
   const { origin, destination, date } = req.query;
 
   if (!origin || !destination || !date) {
@@ -47,7 +31,7 @@ trainScheduleRoute.get("/", (req, res) => {
       .json({ error: "Origin and destination cannot be same" });
   }
 
-  const dateObject = new Date(`${date}T00:00:00`);
+  const dateObject = new Date(`${date}T00:00:00+09:00`);
 
   if (Number.isNaN(dateObject.getTime())) {
     return res.status(400).json({ error: "Invalid Date" });
@@ -82,6 +66,7 @@ trainScheduleRoute.get("/", (req, res) => {
   if (!tempObject) {
     return res.status(500).json({ error: "Schedule data corrupted" });
   }
+
   const response = {
     [origin]: tempObject[origin]?.departure || [],
     [destination]: tempObject[destination]?.arrival || [],
@@ -90,11 +75,11 @@ trainScheduleRoute.get("/", (req, res) => {
   return res.status(200).json(response);
 });
 
-module.exports = trainScheduleRoute;
-
 function getHolidaysForYear(year) {
   if (!holidayCache[year]) {
     holidayCache[year] = hd.getHolidays(year);
   }
   return holidayCache[year];
 }
+
+module.exports = trainScheduleRoute;

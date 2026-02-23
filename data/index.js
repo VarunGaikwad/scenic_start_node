@@ -1,5 +1,7 @@
 const { PDFParse } = require("pdf-parse");
 const fs = require("fs");
+const path = require("path");
+const outputPath = path.join(__dirname, "train-schedule.json");
 
 const FOOTER_LINES = 6;
 const STATION_BLOCK_SIZE = 4;
@@ -30,15 +32,12 @@ async function parseSchedule(fileUrl, target, reverse = false) {
     if (line.startsWith("列車名")) continue;
 
     let prefix = null;
-
     if (line.startsWith("着")) prefix = "着";
     else if (line.startsWith("発")) prefix = "発";
 
     if (prefix) {
       const index = prefix === "着" ? arrivalIndex++ : departureIndex++;
-
       const station = _unAlignStation[index % _unAlignStation.length];
-
       line = `${station} ${line}`;
     }
 
@@ -61,7 +60,6 @@ async function parseSchedule(fileUrl, target, reverse = false) {
 function extractMetaFromUrl(url) {
   const filename = url.split("/").pop()?.replace(".pdf", "") || "";
   const [direction = "", dayType = ""] = filename.split("-");
-
   return {
     direction: direction.toUpperCase(),
     dayType: dayType.toUpperCase(),
@@ -88,14 +86,22 @@ async function buildSchedule() {
     await parseSchedule(fileUrl, JSON_OUTPUT[direction][dayType], reverse);
   }
 
-  if (process.env.NODE_ENV === "development") {
-    fs.writeFileSync(
-      "./data/train-schedule.json",
-      JSON.stringify(JSON_OUTPUT, null, 4),
-    );
-  }
+  // ✅ Ensure directory exists before writing
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+
+  fs.writeFileSync(outputPath, JSON.stringify(JSON_OUTPUT, null, 4));
 
   return JSON_OUTPUT;
 }
 
-module.exports = { buildSchedule };
+// ✅ Build schedule when script runs
+(async () => {
+  try {
+    await buildSchedule();
+    console.log(`✅ Schedule built and saved to ${outputPath}`);
+    process.exit(0);
+  } catch (err) {
+    console.error("❌ Schedule build failed:", err);
+    process.exit(1);
+  }
+})();
