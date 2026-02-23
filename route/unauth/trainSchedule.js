@@ -1,85 +1,52 @@
 const express = require("express");
-const trainScheduleRoute = express.Router();
 const Holidays = require("date-holidays");
-
 const hd = new Holidays("JP");
-const holidayCache = {};
+const { buildSchedule } = require("../../data");
 
-const schedule = require("../../data/train-schedule.json");
+const trainScheduleRoute = express.Router();
 
-const stations = Object.keys(schedule.OUTBOUND.WEEKDAY);
+let schedulePromise = buildSchedule();
 
-const stationIndexMap = {};
-stations.forEach((station, index) => {
-  stationIndexMap[station] = index;
-});
-
-trainScheduleRoute.get("/stations", (req, res) => {
+trainScheduleRoute.get("/stations", async (req, res) => {
+  const schedule = await schedulePromise;
+  const stations = Object.keys(schedule.OUTBOUND.WEEKDAY);
   res.status(200).json(stations);
 });
 
-trainScheduleRoute.get("/", (req, res) => {
+trainScheduleRoute.get("/", async (req, res) => {
   const { origin, destination, date } = req.query;
-
   if (!origin || !destination || !date) {
-    return res.status(400).json({ error: "Missing required parameters" });
+    return res.status(400).json({ error: "Missing parameters" });
   }
 
-  if (origin === destination) {
-    return res
-      .status(400)
-      .json({ error: "Origin and destination cannot be same" });
+  const schedule = await schedulePromise;
+  const stations = Object.keys(schedule.OUTBOUND.WEEKDAY);
+
+  if (!stations.includes(origin) || !stations.includes(destination)) {
+    return res.status(400).json({ error: "Invalid stations" });
   }
 
-  const dateObject = new Date(`${date}T00:00:00+09:00`);
+  const originIndex = stations.indexOf(origin);
+  const destinationIndex = stations.indexOf(destination);
+  const bound = originIndex < destinationIndex ? "OUTBOUND" : "INBOUND";
 
-  if (Number.isNaN(dateObject.getTime())) {
-    return res.status(400).json({ error: "Invalid Date" });
-  }
-
-  if (
-    stationIndexMap[origin] === undefined ||
-    stationIndexMap[destination] === undefined
-  ) {
-    return res.status(400).json({ error: "Invalid origin or destination" });
-  }
-
-  const originIndex = stationIndexMap[origin];
-  const destinationIndex = stationIndexMap[destination];
-
-  const whichBound = originIndex < destinationIndex ? "OUTBOUND" : "INBOUND";
-
-  const holidayList = getHolidaysForYear(dateObject.getFullYear());
-
+  const dateObj = new Date(date);
+  const holidays = hd.getHolidays(dateObj.getFullYear());
   const isHoliday =
-    dateObject.getDay() === 0 ||
-    dateObject.getDay() === 6 ||
-    holidayList.some(({ start, end }) => {
-      const startDate = new Date(start);
-      const endDate = new Date(end || start);
-      return dateObject >= startDate && dateObject <= endDate;
-    });
+    dateObj.getDay() === 0 ||
+    dateObj.getDay() === 6 ||
+    holidays.some(
+      ({ start, end }) =>
+        dateObj >= new Date(start) && dateObj <= new Date(end || start),
+    );
 
   const dayType = isHoliday ? "HOLIDAY" : "WEEKDAY";
-  const tempObject = schedule?.[whichBound]?.[dayType];
+  const temp = schedule[bound][dayType];
 
-  if (!tempObject) {
-    return res.status(500).json({ error: "Schedule data corrupted" });
-  }
-
-  const response = {
-    [origin]: tempObject[origin]?.departure || [],
-    [destination]: tempObject[destination]?.arrival || [],
-  };
-
-  return res.status(200).json(response);
+  res.status(200).json({
+    [origin]: temp[origin]?.departure || [],
+    [destination]: temp[destination]?.arrival || [],
+  });
 });
-
-function getHolidaysForYear(year) {
-  if (!holidayCache[year]) {
-    holidayCache[year] = hd.getHolidays(year);
-  }
-  return holidayCache[year];
-}
 
 module.exports = trainScheduleRoute;

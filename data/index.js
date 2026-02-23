@@ -94,14 +94,4 @@ async function buildSchedule() {
   return JSON_OUTPUT;
 }
 
-// ✅ Build schedule when script runs
-(async () => {
-  try {
-    await buildSchedule();
-    console.log(`✅ Schedule built and saved to ${outputPath}`);
-    process.exit(0);
-  } catch (err) {
-    console.error("❌ Schedule build failed:", err);
-    process.exit(1);
-  }
-})();
+module.exports = { buildSchedule };
