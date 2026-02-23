@@ -1,8 +1,6 @@
 const { PDFParse } = require("pdf-parse");
-const fs = require("fs");
-const path = require("path");
-const outputPath = path.join(__dirname, "train-schedule.json");
-
+const supabase = require("../supabase"); // your Supabase client
+const BUCKET_NAME = "LRT";
 const FOOTER_LINES = 6;
 const STATION_BLOCK_SIZE = 4;
 
@@ -16,24 +14,21 @@ async function parseSchedule(fileUrl, target, reverse = false) {
     ? textArray.slice(-FOOTER_LINES, -STATION_BLOCK_SIZE).reverse()
     : textArray.slice(-FOOTER_LINES, -STATION_BLOCK_SIZE);
 
-  if (!_unAlignStation.length) {
+  if (!_unAlignStation.length)
     throw new Error("Station block extraction failed.");
-  }
 
   let arrivalIndex = 0;
   let departureIndex = 0;
-
-  const typeMap = {
-    着: "arrival",
-    発: "departure",
-  };
+  const typeMap = { 着: "arrival", 発: "departure" };
 
   for (let line of alignStation) {
     if (line.startsWith("列車名")) continue;
 
-    let prefix = null;
-    if (line.startsWith("着")) prefix = "着";
-    else if (line.startsWith("発")) prefix = "発";
+    let prefix = line.startsWith("着")
+      ? "着"
+      : line.startsWith("発")
+        ? "発"
+        : null;
 
     if (prefix) {
       const index = prefix === "着" ? arrivalIndex++ : departureIndex++;
@@ -47,10 +42,8 @@ async function parseSchedule(fileUrl, target, reverse = false) {
     const time = parts.slice(2);
 
     target[stationName] ??= { arrival: [], departure: [] };
-
-    if (type) {
-      target[stationName][type].push(...time);
-    } else {
+    if (type) target[stationName][type].push(...time);
+    else {
       target[stationName].arrival.push(...time);
       target[stationName].departure.push(...time);
     }
@@ -67,32 +60,38 @@ function extractMetaFromUrl(url) {
   };
 }
 
-async function buildSchedule() {
-  const JSON_OUTPUT = {};
+(async () => {
+  try {
+    const JSON_OUTPUT = {};
+    const scheduleFiles = [
+      "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/inbound-weekday.pdf",
+      "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/outbound-weekday.pdf",
+      "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/inbound-holiday.pdf",
+      "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/outbound-holiday.pdf",
+    ];
 
-  const scheduleFiles = [
-    "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/inbound-weekday.pdf",
-    "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/outbound-weekday.pdf",
-    "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/inbound-holiday.pdf",
-    "https://ljelbkjtlddtspgxkgdt.supabase.co/storage/v1/object/public/LRT/outbound-holiday.pdf",
-  ];
+    for (const fileUrl of scheduleFiles) {
+      const { direction, dayType, reverse } = extractMetaFromUrl(fileUrl);
+      JSON_OUTPUT[direction] ??= {};
+      JSON_OUTPUT[direction][dayType] ??= {};
+      await parseSchedule(fileUrl, JSON_OUTPUT[direction][dayType], reverse);
+    }
 
-  for (const fileUrl of scheduleFiles) {
-    const { direction, dayType, reverse } = extractMetaFromUrl(fileUrl);
+    // Upload to Supabase
+    const fileName = "train-schedule.json";
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(fileName, Buffer.from(JSON.stringify(JSON_OUTPUT, null, 4)), {
+        contentType: "application/json",
+        upsert: true,
+      });
 
-    JSON_OUTPUT[direction] ??= {};
-    JSON_OUTPUT[direction][dayType] ??= {};
-
-    await parseSchedule(fileUrl, JSON_OUTPUT[direction][dayType], reverse);
+    if (error) throw error;
+    console.log(
+      `✅ Schedule uploaded to Supabase bucket "${BUCKET_NAME}" as ${fileName}`,
+    );
+  } catch (err) {
+    console.error("❌ Schedule build/upload failed:", err);
+    process.exit(1);
   }
-
-  if (process.env.NODE_ENV === "development") {
-    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-
-    fs.writeFileSync(outputPath, JSON.stringify(JSON_OUTPUT, null, 4));
-  }
-
-  return JSON_OUTPUT;
-}
-
-module.exports = { buildSchedule };
+})();
