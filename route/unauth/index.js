@@ -14,4 +14,6 @@ unauthRoutes.use("/translation", require("./translation"));
 
 unauthRoutes.use("/music-tracker", music, require("./musicTracker"));
 
+unauthRoutes.use("/train-schedule", require("./trainSchedule"));
+
 module.exports = unauthRoutes;

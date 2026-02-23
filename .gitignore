@@ -1,3 +1,5 @@
 node_modules
 .env
 *.http
+nodemon.json
+data/*.json
