@@ -86,10 +86,11 @@ async function buildSchedule() {
     await parseSchedule(fileUrl, JSON_OUTPUT[direction][dayType], reverse);
   }
 
-  // ✅ Ensure directory exists before writing
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  if (process.env.NODE_ENV === "development") {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
-  fs.writeFileSync(outputPath, JSON.stringify(JSON_OUTPUT, null, 4));
+    fs.writeFileSync(outputPath, JSON.stringify(JSON_OUTPUT, null, 4));
+  }
 
   return JSON_OUTPUT;
 }
