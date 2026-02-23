@@ -24,7 +24,6 @@ const whitelist = process.env.FRONTEND_URLS
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log("Origin", origin);
       if (
         !origin ||
         whitelist.includes(origin) ||
