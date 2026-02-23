@@ -47,7 +47,7 @@ trainScheduleRoute.get("/", async (req, res) => {
 
     const originIndex = stations.indexOf(origin);
     const destinationIndex = stations.indexOf(destination);
-    const bound = originIndex < destinationIndex ? "OUTBOUND" : "INBOUND";
+    const bound = originIndex > destinationIndex ? "OUTBOUND" : "INBOUND";
 
     const dateObj = new Date(date);
     const isHoliday = dateObj.getDay() === 0 || dateObj.getDay() === 6; // optionally add your holiday logic
