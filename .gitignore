@@ -5,4 +5,3 @@ nodemon.json
 data/*.json
 admin-ui/node_modules
 admin-ui/dist
-public/admin-v2
