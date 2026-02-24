@@ -1,0 +1,83 @@
+const shayariAndQuotesSchema = {
+  name: "shayari_quotes",
+
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["text", "normalizedText", "type", "createdAt"],
+      additionalProperties: false,
+
+      properties: {
+        _id: { bsonType: "objectId" }, // MongoDB usually handles this but sometimes it's added here
+        text: {
+          bsonType: "string",
+          minLength: 5,
+          pattern: "\\S", // must contain non-whitespace
+          description: "Original shayari or quote text",
+        },
+
+        normalizedText: {
+          bsonType: "string",
+          minLength: 5,
+          pattern: "\\S",
+          description:
+            "Unicode-normalized (NFKC), lowercased, trimmed, space-collapsed text used for uniqueness",
+        },
+
+        type: {
+          bsonType: "string",
+          enum: ["shayari", "quotes"],
+          description: "Content type",
+        },
+
+        author: {
+          oneOf: [
+            {
+              bsonType: "string",
+              minLength: 1,
+              pattern: "\\S",
+            },
+            { bsonType: "null" },
+          ],
+          description: "Optional author name",
+        },
+
+        tags: {
+          bsonType: "array",
+          uniqueItems: true,
+          items: {
+            bsonType: "string",
+            minLength: 1,
+            pattern: "\\S",
+          },
+          description: "Optional tags (non-empty strings)",
+        },
+
+        userId: {
+          oneOf: [{ bsonType: "objectId" }, { bsonType: "null" }],
+          description: "Null for admin/system entries",
+        },
+
+        createdAt: {
+          bsonType: "date",
+          description: "Creation timestamp",
+        },
+      },
+    },
+  },
+
+  validationLevel: "strict",
+  validationAction: "error",
+
+  indexes: [
+    {
+      keys: { normalizedText: 1 },
+      options: {
+        unique: true,
+        name: "uniq_normalized_text",
+      },
+    },
+  ],
+};
+
+export default shayariAndQuotesSchema;

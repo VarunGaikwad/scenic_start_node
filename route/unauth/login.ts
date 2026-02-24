@@ -1,0 +1,72 @@
+import { Router, Request, Response } from "express";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { connectDB } from "../../db";
+import { loginLimiter } from "../../middleware/rateLimiter";
+
+const loginRouter = Router();
+
+loginRouter.post("/", loginLimiter, async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+
+  if (typeof email !== "string" || typeof password !== "string") {
+    return res.status(400).json({ message: "Email and password required" });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  try {
+    const db = await connectDB();
+
+    const user = await db.collection("users").findOne({
+      email: normalizedEmail,
+    });
+
+    if (!user || user.status !== "active") {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    await db
+      .collection("users")
+      .updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+
+    const token = jwt.sign(
+      {
+        sub: user._id.toString(),
+        email: user.email,
+        role: user.role ?? "user",
+      },
+      process.env.JWT_SECRET!,
+      {
+        algorithm: "HS256",
+        issuer: process.env.JWT_ISSUER,
+        audience: process.env.JWT_AUDIENCE,
+      },
+    );
+
+    res.cookie("ACCESS_TOKEN", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365 * 10),
+    });
+
+    return res.status(200).json({
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role ?? "user",
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+export default loginRouter;

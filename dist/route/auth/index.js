@@ -1,0 +1,22 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const me_1 = __importDefault(require("./me"));
+const weatherInfo_1 = __importDefault(require("./weatherInfo"));
+const shayariAndQuotes_1 = __importDefault(require("./shayariAndQuotes"));
+const backgroundImages_1 = __importDefault(require("./backgroundImages"));
+const bookmarks_1 = __importDefault(require("./bookmarks"));
+const calenderReminders_1 = __importDefault(require("./calenderReminders"));
+const favoriteIcons_1 = __importDefault(require("./favoriteIcons"));
+const authRoutes = (0, express_1.Router)();
+authRoutes.use("/me", me_1.default);
+authRoutes.use("/weather-info", weatherInfo_1.default);
+authRoutes.use("/shayari-quotes", shayariAndQuotes_1.default);
+authRoutes.use("/background-images", backgroundImages_1.default);
+authRoutes.use("/bookmark", bookmarks_1.default);
+authRoutes.use("/calender-reminder", calenderReminders_1.default);
+authRoutes.use("/favorite-icon", favoriteIcons_1.default);
+exports.default = authRoutes;

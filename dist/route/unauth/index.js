@@ -1,0 +1,23 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const middleware_1 = require("../../middleware");
+const login_1 = __importDefault(require("./login"));
+const register_1 = __importDefault(require("./register"));
+const emailExists_1 = __importDefault(require("./emailExists"));
+const logout_1 = __importDefault(require("./logout"));
+const translation_1 = __importDefault(require("./translation"));
+const musicTracker_1 = __importDefault(require("./musicTracker"));
+const trainSchedule_1 = __importDefault(require("./trainSchedule"));
+const unauthRoutes = (0, express_1.Router)();
+unauthRoutes.use("/login", login_1.default);
+unauthRoutes.use("/register", register_1.default);
+unauthRoutes.use("/email-exists", emailExists_1.default);
+unauthRoutes.use("/logout", logout_1.default);
+unauthRoutes.use("/translation", translation_1.default);
+unauthRoutes.use("/music-tracker", middleware_1.music, musicTracker_1.default);
+unauthRoutes.use("/train-schedule", trainSchedule_1.default);
+exports.default = unauthRoutes;
