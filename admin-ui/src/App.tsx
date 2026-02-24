@@ -29,6 +29,7 @@ import {
   Hash,
   Activity,
   ChevronRight,
+  Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -38,9 +39,12 @@ class AdminAPI {
 
   async request(url: string, options: RequestInit = {}) {
     const headers: any = {
-      "Content-Type": "application/json",
       ...options.headers,
     };
+
+    if (!(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
 
     if (this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
@@ -316,30 +320,47 @@ function App() {
 
   const handleSave = async (payload: any) => {
     try {
+      const { file, ...cleanPayload } = payload;
+      let result;
+
+      const method = editingItem ? "PUT" : "POST";
+      const url = editingItem
+        ? `/admin/${activeResource}/${editingItem._id}`
+        : `/admin/${activeResource}`;
+
+      if (activeResource === "background-images" && file) {
+        const fd = new FormData();
+        Object.keys(cleanPayload).forEach((key) => {
+          fd.append(key, cleanPayload[key]);
+        });
+        fd.append("image", file);
+
+        result = await api.request(url, {
+          method,
+          body: fd,
+        });
+      } else {
+        result = await api.request(url, {
+          method,
+          body: JSON.stringify(cleanPayload),
+        });
+      }
+
+      const updatedDoc = result.value !== undefined ? result.value : result;
+
       if (editingItem) {
-        const updated = await api.request(
-          `/admin/${activeResource}/${editingItem._id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify(payload),
-          },
-        );
         setData(
           data.map((item) =>
-            item._id === editingItem._id ? updated.value || updated : item,
+            item._id === editingItem._id ? updatedDoc : item,
           ),
         );
       } else {
-        const created = await api.request(`/admin/${activeResource}`, {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        setData([created, ...data]);
+        setData([updatedDoc, ...data]);
       }
       setIsModalOpen(false);
       setEditingItem(null);
     } catch (err: any) {
-      alert(err.message);
+      alert(`Save Error: ${err.message}`);
     }
   };
 
@@ -802,10 +823,25 @@ function App() {
                             <ExternalLink size={14} />
                           </a>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-white/50">
-                          <span>Contrast: {item.text_color}</span>
-                          {item.is_welcome && (
-                            <span className="text-blue-400">Welcome Node</span>
+                        <div className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-white/70">
+                          {item.title && (
+                            <span className="text-white text-xs normal-case mb-1">
+                              {item.title}
+                            </span>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <span>{item.category || "General"}</span>
+                            <div className="flex gap-2">
+                              <span>{item.text_color}</span>
+                              {item.is_welcome && (
+                                <span className="text-blue-400">Welcome</span>
+                              )}
+                            </div>
+                          </div>
+                          {item.author_name && (
+                            <span className="text-white/40 mt-1">
+                              By {item.author_name}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -834,35 +870,53 @@ const FormModal = ({ isOpen, onClose, item, resource, onSave }: any) => {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    if (item) setFormData(item);
-    else {
-      const d: any = {};
-      if (resource === "users") {
-        d.role = "user";
-        d.status = "active";
+    if (isOpen) {
+      if (item) {
+        // For editing
+        const initialData = { ...item };
+        if (resource === "background-images") {
+          if (
+            initialData.overlay_opacity === undefined ||
+            initialData.overlay_opacity === null
+          )
+            initialData.overlay_opacity = 0;
+          if (!initialData.overlay_color) initialData.overlay_color = "#000000";
+          if (!initialData.text_color) initialData.text_color = "light";
+          if (initialData.is_active === undefined) initialData.is_active = true;
+        }
+        setFormData(initialData);
+      } else {
+        // For creating
+        const d: any = {};
+        if (resource === "users") {
+          d.role = "user";
+          d.status = "active";
+        } else if (resource === "bookmarks") {
+          d.type = "link";
+        } else if (resource === "shayari-quotes") {
+          d.type = "quote";
+          d.tags = [];
+        } else if (resource === "calendar-reminders") {
+          d.priority = "medium";
+          d.completed = false;
+        } else if (resource === "background-images") {
+          d.text_color = "light";
+          d.is_welcome = false;
+          d.is_active = true;
+          d.category = "General";
+          d.overlay_color = "#000000";
+          d.overlay_opacity = 0;
+        }
+        setFormData(d);
       }
-      if (resource === "bookmarks") {
-        d.type = "link";
-      }
-      if (resource === "shayari-quotes") {
-        d.type = "quote";
-        d.tags = [];
-      }
-      if (resource === "calendar-reminders") {
-        d.priority = "medium";
-        d.completed = false;
-      }
-      if (resource === "background-images") {
-        d.text_color = "light";
-        d.is_welcome = false;
-      }
-      setFormData(d);
     }
   }, [item, resource, isOpen]);
 
   if (!isOpen) return null;
 
-  const update = (f: string, v: any) => setFormData({ ...formData, [f]: v });
+  const update = (f: string, v: any) => {
+    setFormData((prev: any) => ({ ...prev, [f]: v }));
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -1097,40 +1151,196 @@ const FormModal = ({ isOpen, onClose, item, resource, onSave }: any) => {
           )}
 
           {resource === "background-images" && (
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <label className="text-xs font-bold uppercase text-dim">
-                  CDN URI (Image URL)
-                </label>
-                <input
-                  className="form-control"
-                  value={formData.image_url || ""}
-                  onChange={(e) => update("image_url", e.target.value)}
-                  placeholder="https://..."
-                />
-              </div>
+            <div className="space-y-6">
+              {/* Media Preview Section */}
+              {formData.image_url && (
+                <div className="relative w-full h-48 rounded-xl overflow-hidden border border-white/10 bg-black/20 group">
+                  <img
+                    src={formData.image_url}
+                    className="w-full h-full object-cover"
+                    alt="Preview"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-sm">
+                    <span className="text-white text-[10px] font-bold uppercase tracking-[0.2em]">
+                      Live Preview Node
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <label className="text-xs font-bold uppercase text-dim">
-                    Contrast Matrix
+                    Resource Identity (Title)
+                  </label>
+                  <input
+                    className="form-control"
+                    value={formData.title || ""}
+                    onChange={(e) => update("title", e.target.value)}
+                    placeholder="Grand Canyon"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-xs font-bold uppercase text-dim">
+                    Classification (Category)
+                  </label>
+                  <input
+                    className="form-control"
+                    value={formData.category || ""}
+                    onChange={(e) => update("category", e.target.value)}
+                    placeholder="Nature"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <label className="text-xs font-bold uppercase text-dim">
+                  Source Protocol (File or URL)
+                </label>
+                <div className="flex gap-4">
+                  <div className="flex-1 relative">
+                    <input
+                      className="form-control"
+                      value={formData.image_url || ""}
+                      onChange={(e) => update("image_url", e.target.value)}
+                      placeholder="https://..."
+                      disabled={!!formData.file}
+                    />
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      className="hidden"
+                      id="bg-upload"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          update("file", file);
+                          update("image_url", URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="bg-upload"
+                      className={`btn ${formData.file ? "btn-primary" : "btn-secondary"} h-12 w-12 p-0 flex items-center justify-center`}
+                    >
+                      <Upload size={18} />
+                    </label>
+                  </div>
+                </div>
+                {formData.file && (
+                  <div className="text-[10px] font-bold text-success flex items-center gap-1">
+                    <CheckCircle2 size={10} /> {formData.file.name} ready for
+                    uplink
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-xs font-bold uppercase text-dim">
+                    Creator Alias
+                  </label>
+                  <input
+                    className="form-control"
+                    value={formData.author_name || ""}
+                    onChange={(e) => update("author_name", e.target.value)}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-xs font-bold uppercase text-dim">
+                    Creator URI
+                  </label>
+                  <input
+                    className="form-control"
+                    value={formData.author_url || ""}
+                    onChange={(e) => update("author_url", e.target.value)}
+                    placeholder="https://unsplash.com/@..."
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-2">
+                  <label className="text-xs font-bold uppercase text-dim">
+                    Text Contrast
                   </label>
                   <select
                     className="form-control"
                     value={formData.text_color}
                     onChange={(e) => update("text_color", e.target.value)}
                   >
-                    <option value="light">LIGHT MODE</option>
-                    <option value="dark">DARK MODE</option>
+                    <option value="light">LIGHT</option>
+                    <option value="dark">DARK</option>
                   </select>
                 </div>
-                <div className="flex items-end pb-1.5 gap-2">
+                <div className="grid gap-2">
+                  <label className="text-xs font-bold uppercase text-dim">
+                    Overlay Hex
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      className="w-10 h-10 p-0 border-0 bg-transparent cursor-pointer"
+                      value={formData.overlay_color || "#000000"}
+                      onChange={(e) => update("overlay_color", e.target.value)}
+                    />
+                    <input
+                      className="form-control flex-1 font-mono text-[10px]"
+                      value={formData.overlay_color || ""}
+                      onChange={(e) => update("overlay_color", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-xs font-bold uppercase text-dim">
+                    Opacity ({Math.round((formData.overlay_opacity || 0) * 100)}
+                    %)
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    className="w-full h-10 accent-blue-500 cursor-pointer"
+                    value={formData.overlay_opacity || 0}
+                    onChange={(e) =>
+                      update("overlay_opacity", e.target.valueAsNumber)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 p-4 bg-tertiary/50 rounded-xl border border-white/5">
+                <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    id="is-welcome"
+                    className="w-4 h-4 rounded text-blue-500 accent-blue-500"
                     checked={formData.is_welcome}
                     onChange={(e) => update("is_welcome", e.target.checked)}
                   />
-                  <label className="text-xs font-bold uppercase text-dim">
-                    Entry Node wallpaper
+                  <label
+                    htmlFor="is-welcome"
+                    className="text-xs font-bold uppercase text-dim cursor-pointer"
+                  >
+                    Entry Node
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is-active"
+                    className="w-4 h-4 rounded text-blue-500 accent-blue-500"
+                    checked={formData.is_active}
+                    onChange={(e) => update("is_active", e.target.checked)}
+                  />
+                  <label
+                    htmlFor="is-active"
+                    className="text-xs font-bold uppercase text-dim cursor-pointer"
+                  >
+                    Active Status
                   </label>
                 </div>
               </div>

@@ -120,8 +120,17 @@ backgroundImagesRouter.post(
   admin,
   async (req: AuthRequest, res: Response) => {
     try {
-      const { text_color, overlay_color, overlay_opacity, is_welcome } =
-        req.body;
+      const {
+        text_color,
+        overlay_color,
+        overlay_opacity,
+        is_welcome,
+        title,
+        category,
+        author_name,
+        author_url,
+        is_active,
+      } = req.body;
       const file = req.file;
 
       if (!file || !text_color) {
@@ -201,11 +210,21 @@ backgroundImagesRouter.post(
         media_type: mediaType,
         file_name: fileName,
         file_hash: hash,
-        text_color,
-        overlay_color: overlay_color || null,
+        text_color: text_color || "light",
+        overlay_color: overlay_color || "#000000",
         overlay_opacity:
-          overlay_opacity !== undefined ? parseFloat(overlay_opacity) : null,
+          overlay_opacity !== undefined && overlay_opacity !== null
+            ? parseFloat(overlay_opacity)
+            : 0,
         is_welcome: isWelcomeBool,
+        title: title || "",
+        category: category || "Uncategorized",
+        author_name: author_name || "",
+        author_url: author_url || "",
+        is_active:
+          is_active !== undefined
+            ? is_active === "true" || is_active === true
+            : true,
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -290,6 +309,10 @@ backgroundImagesRouter.get("/", async (req: AuthRequest, res: Response) => {
       overlay_color: wallpaper.overlay_color,
       overlay_opacity: wallpaper.overlay_opacity,
       is_welcome: wallpaper.is_welcome,
+      title: wallpaper.title,
+      category: wallpaper.category,
+      author_name: wallpaper.author_name,
+      author_url: wallpaper.author_url,
     });
   } catch (err) {
     console.error("Error fetching background image:", err);
