@@ -70,6 +70,7 @@ trainScheduleRoute.get("/", async (req: Request, res: Response) => {
     const temp = schedule[bound][dayType];
 
     res.status(200).json({
+      scheduleType: dayType.toLowerCase(),
       [origin]: temp[origin]?.departure || [],
       [destination]: temp[destination]?.arrival || [],
     });
