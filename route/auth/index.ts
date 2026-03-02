@@ -5,7 +5,7 @@ import shayariAndQuotesRouter from "./shayariAndQuotes";
 import backgroundImagesRouter from "./backgroundImages";
 import bookmarksRouter from "./bookmarks";
 import calenderRemindersRouter from "./calenderReminders";
-import favoriteIconsRouter from "./favoriteIcons";
+import favoriteIconsRouter from "../unauth/favoriteIcons";
 
 const authRoutes = Router();
 
@@ -15,6 +15,5 @@ authRoutes.use("/shayari-quotes", shayariAndQuotesRouter);
 authRoutes.use("/background-images", backgroundImagesRouter);
 authRoutes.use("/bookmark", bookmarksRouter);
 authRoutes.use("/calender-reminder", calenderRemindersRouter);
-authRoutes.use("/favorite-icon", favoriteIconsRouter);
 
 export default authRoutes;

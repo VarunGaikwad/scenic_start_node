@@ -7,6 +7,7 @@ import logoutRouter from "./logout";
 import translationRouter from "./translation";
 import musicTrackerRouter from "./musicTracker";
 import trainScheduleRouter from "./trainSchedule";
+import favoriteIconRouter from "./favoriteIcons";
 
 const unauthRoutes = Router();
 
@@ -17,5 +18,6 @@ unauthRoutes.use("/logout", logoutRouter);
 unauthRoutes.use("/translation", translationRouter);
 unauthRoutes.use("/music-tracker", music, musicTrackerRouter);
 unauthRoutes.use("/train-schedule", trainScheduleRouter);
+unauthRoutes.use("/favorite-icon", favoriteIconRouter);
 
 export default unauthRoutes;
