@@ -1,4 +1,4 @@
-const calenderReminderSchema = {
+const calendarReminderSchema = {
   name: "calendar_reminders",
   validator: {
     $jsonSchema: {
@@ -27,39 +27,35 @@ const calenderReminderSchema = {
           bsonType: "bool",
           description: "must be a boolean value",
         },
-        description: {
+        date: {
           bsonType: "string",
           description:
-            "optional field to store additional information about the reminder",
+            "optional ISO date string (e.g. '2026-03-16') for the event/task/birthday",
         },
-        dueDate: {
-          bsonType: "date",
-          description:
-            "optional field to store the due date for a task or event",
+        time: {
+          bsonType: "string",
+          description: "optional time string in HH:mm format (e.g. '10:04')",
+        },
+        description: {
+          bsonType: "string",
+          description: "optional additional information about the reminder",
         },
         priority: {
           enum: ["low", "medium", "high"],
-          description:
-            "optional field to indicate the priority level of the task or event",
-        },
-        reminderTime: {
-          bsonType: "date",
-          description:
-            "optional field to store the time for the reminder notification",
+          description: "optional priority level of the task or event",
         },
         location: {
           bsonType: "string",
-          description:
-            "optional field to store the location for an event or birthday",
+          description: "optional location for an event or birthday",
         },
         updatedAt: {
           bsonType: "date",
-          description: "optional field to store the last updated time",
+          description: "optional last updated timestamp",
         },
       },
     },
   },
-  indexes: [{ userId: 1 }, { createdAt: 1 }, { dueDate: 1 }],
+  indexes: [{ userId: 1 }, { createdAt: 1 }, { date: 1 }],
 };
 
-export default calenderReminderSchema;
+export default calendarReminderSchema;

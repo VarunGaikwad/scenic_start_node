@@ -2,23 +2,188 @@ import { Router, Request, Response } from "express";
 import { ObjectId } from "mongodb";
 import { connectDB } from "../../db";
 
-const calenderReminderRouter = Router();
+const calendarReminderRouter = Router();
 
 /**
  * @swagger
- * /auth/calender-reminder:
+ * tags:
+ *   name: CalendarReminders
+ *   description: Calendar reminder management
  */
-calenderReminderRouter.post("/", async (req: Request, res: Response) => {
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     CalendarReminder:
+ *       type: object
+ *       required:
+ *         - type
+ *         - title
+ *         - createdAt
+ *         - userId
+ *         - completed
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Auto-generated MongoDB ObjectId
+ *         userId:
+ *           type: string
+ *           description: The ObjectId of the user
+ *         type:
+ *           type: string
+ *           enum: [task, event, birthday]
+ *           description: Type of reminder
+ *         title:
+ *           type: string
+ *           minLength: 1
+ *           description: Title of the reminder
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           description: Creation timestamp
+ *         completed:
+ *           type: boolean
+ *           description: Completion status
+ *         date:
+ *           type: string
+ *           example: "2026-03-16"
+ *           description: ISO date string for the reminder (YYYY-MM-DD)
+ *         time:
+ *           type: string
+ *           example: "10:04"
+ *           description: Time string in HH:mm format
+ *         description:
+ *           type: string
+ *           description: Additional information
+ *         priority:
+ *           type: string
+ *           enum: [low, medium, high]
+ *           description: Priority level
+ *         location:
+ *           type: string
+ *           description: Location for the event or birthday
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           description: Last updated timestamp
+ *     CreateReminderRequest:
+ *       type: object
+ *       required:
+ *         - type
+ *         - title
+ *         - createdAt
+ *         - userId
+ *         - completed
+ *       properties:
+ *         userId:
+ *           type: string
+ *         type:
+ *           type: string
+ *           enum: [task, event, birthday]
+ *         title:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         completed:
+ *           type: boolean
+ *         date:
+ *           type: string
+ *           example: "2026-03-16"
+ *         time:
+ *           type: string
+ *           example: "10:04"
+ *         description:
+ *           type: string
+ *         priority:
+ *           type: string
+ *           enum: [low, medium, high]
+ *         location:
+ *           type: string
+ *     UpdateReminderRequest:
+ *       type: object
+ *       required:
+ *         - type
+ *         - title
+ *         - completed
+ *       properties:
+ *         type:
+ *           type: string
+ *           enum: [task, event, birthday]
+ *         title:
+ *           type: string
+ *         completed:
+ *           type: boolean
+ *         date:
+ *           type: string
+ *           example: "2026-03-16"
+ *         time:
+ *           type: string
+ *           example: "10:04"
+ *         description:
+ *           type: string
+ *         priority:
+ *           type: string
+ *           enum: [low, medium, high]
+ *         location:
+ *           type: string
+ */
+
+// ─── CREATE ───────────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/calendar-reminder:
+ *   post:
+ *     summary: Create a new calendar reminder
+ *     tags: [CalendarReminders]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateReminderRequest'
+ *           example:
+ *             userId: "660f1b2e3a4b5c6d7e8f9a0b"
+ *             type: "birthday"
+ *             title: "My Birthday"
+ *             createdAt: "2026-03-16T00:00:00.000Z"
+ *             completed: false
+ *             date: "2026-03-16"
+ *             time: "10:04"
+ *             description: "Annual birthday reminder"
+ *             priority: "high"
+ *             location: "Home"
+ *     responses:
+ *       201:
+ *         description: Reminder created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Reminder created
+ *                 reminderId:
+ *                   type: string
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Server error
+ */
+calendarReminderRouter.post("/", async (req: Request, res: Response) => {
   const {
     type,
     title,
     createdAt,
     userId,
     completed,
+    date,
+    time,
     description,
-    dueDate,
     priority,
-    reminderTime,
     location,
   } = req.body;
 
@@ -36,11 +201,11 @@ calenderReminderRouter.post("/", async (req: Request, res: Response) => {
       createdAt: new Date(createdAt),
       userId: new ObjectId(userId as string),
       completed,
-      description,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      priority,
-      reminderTime: reminderTime ? new Date(reminderTime) : null,
-      location,
+      date: date ?? null,
+      time: time ?? null,
+      description: description ?? null,
+      priority: priority ?? null,
+      location: location ?? null,
       updatedAt: new Date(),
     };
 
@@ -54,11 +219,34 @@ calenderReminderRouter.post("/", async (req: Request, res: Response) => {
   }
 });
 
+// ─── GET BY ID ────────────────────────────────────────────────────────────────
+
 /**
  * @swagger
- * /auth/calender-reminder/{id}:
+ * /auth/calendar-reminder/{id}:
+ *   get:
+ *     summary: Get a reminder by ID
+ *     tags: [CalendarReminders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Reminder ObjectId
+ *     responses:
+ *       200:
+ *         description: Reminder found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CalendarReminder'
+ *       404:
+ *         description: Reminder not found
+ *       500:
+ *         description: Server error
  */
-calenderReminderRouter.get("/:id", async (req: Request, res: Response) => {
+calendarReminderRouter.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
@@ -80,20 +268,62 @@ calenderReminderRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── UPDATE ───────────────────────────────────────────────────────────────────
+
 /**
  * @swagger
- * /auth/calender-reminder/{id}:
+ * /auth/calendar-reminder/{id}:
+ *   put:
+ *     summary: Update a reminder by ID
+ *     tags: [CalendarReminders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Reminder ObjectId
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateReminderRequest'
+ *           example:
+ *             type: "task"
+ *             title: "Updated Task"
+ *             completed: true
+ *             date: "2026-04-01"
+ *             time: "09:00"
+ *             priority: "medium"
+ *     responses:
+ *       200:
+ *         description: Reminder updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Reminder updated
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Reminder not found
+ *       500:
+ *         description: Server error
  */
-calenderReminderRouter.put("/:id", async (req: Request, res: Response) => {
+calendarReminderRouter.put("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
   const {
     type,
     title,
     completed,
+    date,
+    time,
     description,
-    dueDate,
     priority,
-    reminderTime,
     location,
   } = req.body;
 
@@ -105,15 +335,15 @@ calenderReminderRouter.put("/:id", async (req: Request, res: Response) => {
     const db = await connectDB();
     const calendarCollection = db.collection("calendar_reminders");
 
-    const updatedReminder: any = {
+    const updatedReminder = {
       type,
       title,
       completed,
-      description,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      priority,
-      reminderTime: reminderTime ? new Date(reminderTime) : null,
-      location,
+      date: date ?? null,
+      time: time ?? null,
+      description: description ?? null,
+      priority: priority ?? null,
+      location: location ?? null,
       updatedAt: new Date(),
     };
 
@@ -133,11 +363,38 @@ calenderReminderRouter.put("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── DELETE ───────────────────────────────────────────────────────────────────
+
 /**
  * @swagger
- * /auth/calender-reminder/{id}:
+ * /auth/calendar-reminder/{id}:
+ *   delete:
+ *     summary: Delete a reminder by ID
+ *     tags: [CalendarReminders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Reminder ObjectId
+ *     responses:
+ *       200:
+ *         description: Reminder deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Reminder deleted
+ *       404:
+ *         description: Reminder not found
+ *       500:
+ *         description: Server error
  */
-calenderReminderRouter.delete("/:id", async (req: Request, res: Response) => {
+calendarReminderRouter.delete("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
@@ -159,11 +416,36 @@ calenderReminderRouter.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// ─── GET ALL BY USER ──────────────────────────────────────────────────────────
+
 /**
  * @swagger
- * /auth/calender-reminder/user/{userId}:
+ * /auth/calendar-reminder/user/{userId}:
+ *   get:
+ *     summary: Get all reminders for a user
+ *     tags: [CalendarReminders]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ObjectId
+ *     responses:
+ *       200:
+ *         description: List of reminders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/CalendarReminder'
+ *       404:
+ *         description: No reminders found for this user
+ *       500:
+ *         description: Server error
  */
-calenderReminderRouter.get(
+calendarReminderRouter.get(
   "/user/:userId",
   async (req: Request, res: Response) => {
     const { userId } = req.params;
@@ -190,25 +472,39 @@ calenderReminderRouter.get(
   },
 );
 
+// ─── GET DUE TODAY ────────────────────────────────────────────────────────────
+
 /**
  * @swagger
- * /auth/calender-reminder/due/today:
+ * /auth/calendar-reminder/due/today:
+ *   get:
+ *     summary: Get all reminders due today
+ *     tags: [CalendarReminders]
+ *     responses:
+ *       200:
+ *         description: List of reminders due today
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/CalendarReminder'
+ *       404:
+ *         description: No reminders due today
+ *       500:
+ *         description: Server error
  */
-calenderReminderRouter.get(
+calendarReminderRouter.get(
   "/due/today",
   async (_req: Request, res: Response) => {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    const today = new Date().toISOString().split("T")[0]; // "2026-03-16"
 
     try {
       const db = await connectDB();
       const calendarCollection = db.collection("calendar_reminders");
 
       const reminders = await calendarCollection
-        .find({
-          dueDate: { $gte: startOfDay, $lte: endOfDay },
-        })
+        .find({ date: today })
         .toArray();
 
       if (reminders.length === 0) {
@@ -223,4 +519,4 @@ calenderReminderRouter.get(
   },
 );
 
-export default calenderReminderRouter;
+export default calendarReminderRouter;
