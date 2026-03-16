@@ -14,6 +14,6 @@ authRoutes.use("/weather-info", weatherInfoRouter);
 authRoutes.use("/shayari-quotes", shayariAndQuotesRouter);
 authRoutes.use("/background-images", backgroundImagesRouter);
 authRoutes.use("/bookmark", bookmarksRouter);
-authRoutes.use("/calender-reminder", calenderRemindersRouter);
+authRoutes.use("/calender-reminders", calenderRemindersRouter);
 
 export default authRoutes;
