@@ -61,6 +61,7 @@ trainScheduleRoute.get("/", async (req, res) => {
         const dayType = isHoliday ? "HOLIDAY" : "WEEKDAY";
         const temp = schedule[bound][dayType];
         res.status(200).json({
+            scheduleType: dayType.toLowerCase(),
             [origin]: temp[origin]?.departure || [],
             [destination]: temp[destination]?.arrival || [],
         });

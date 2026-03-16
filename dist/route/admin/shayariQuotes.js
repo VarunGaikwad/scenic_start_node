@@ -123,7 +123,8 @@ router.put("/:id", async (req, res) => {
         if (!result) {
             return res.status(404).json({ error: "Item not found" });
         }
-        res.json(result);
+        const doc = result.value !== undefined ? result.value : result;
+        res.json(doc);
     }
     catch (err) {
         // Check for duplicate key error on normalizedText

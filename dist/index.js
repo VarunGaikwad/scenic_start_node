@@ -24,7 +24,8 @@ app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         if (!origin ||
             whitelist.includes(origin) ||
-            origin.startsWith("chrome-extension://")) {
+            origin.startsWith("chrome-extension://") ||
+            origin.startsWith("http://localhost")) {
             callback(null, true);
         }
         else {
@@ -34,7 +35,7 @@ app.use((0, cors_1.default)({
     credentials: true,
 }));
 // Serve static files (admin panel)
-app.use("/admin", express_1.default.static(path_1.default.join(__dirname, "public/admin")));
+app.use("/admin", express_1.default.static(path_1.default.join(__dirname, "public/admin-v2")));
 // Development-only middleware (Swagger docs)
 if (process.env.NODE_ENV === "development") {
     const swaggerJsdoc = require("swagger-jsdoc");

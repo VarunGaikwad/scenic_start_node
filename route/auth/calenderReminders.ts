@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { ObjectId } from "mongodb";
 import { connectDB } from "../../db";
+import { AuthRequest } from "../../middleware/auth";
 
 const calendarReminderRouter = Router();
 
@@ -237,6 +238,46 @@ calendarReminderRouter.post("/", async (req: Request, res: Response) => {
     res
       .status(201)
       .json({ message: "Reminder created", reminderId: result.insertedId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── GET ALL FOR AUTHENTICATED USER ───────────────────────────────────────────
+
+/**
+ * @swagger
+ * /auth/calendar-reminder:
+ *   get:
+ *     summary: Get all reminders for current authenticated user
+ *     tags: [CalendarReminders]
+ *     responses:
+ *       200:
+ *         description: List of reminders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/CalendarReminder'
+ *       500:
+ *         description: Server error
+ */
+calendarReminderRouter.get("/", async (req: AuthRequest, res: Response) => {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const db = await connectDB();
+    const calendarCollection = db.collection("calendar_reminders");
+
+    const reminders = await calendarCollection
+      .find({ userId: new ObjectId(req.user.id) })
+      .toArray();
+
+    res.status(200).json(reminders);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Server error" });

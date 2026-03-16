@@ -116,7 +116,7 @@ const backgroundImagesRouter = (0, express_1.Router)();
  */
 backgroundImagesRouter.post("/", upload.single("image"), middleware_1.admin, async (req, res) => {
     try {
-        const { text_color, overlay_color, overlay_opacity, is_welcome } = req.body;
+        const { text_color, overlay_color, overlay_opacity, is_welcome, title, category, author_name, author_url, is_active, } = req.body;
         const file = req.file;
         if (!file || !text_color) {
             return res.status(400).json({
@@ -179,10 +179,19 @@ backgroundImagesRouter.post("/", upload.single("image"), middleware_1.admin, asy
             media_type: mediaType,
             file_name: fileName,
             file_hash: hash,
-            text_color,
-            overlay_color: overlay_color || null,
-            overlay_opacity: overlay_opacity !== undefined ? parseFloat(overlay_opacity) : null,
+            text_color: text_color || "light",
+            overlay_color: overlay_color || "#000000",
+            overlay_opacity: overlay_opacity !== undefined && overlay_opacity !== null
+                ? parseFloat(overlay_opacity)
+                : 0,
             is_welcome: isWelcomeBool,
+            title: title || "",
+            category: category || "Uncategorized",
+            author_name: author_name || "",
+            author_url: author_url || "",
+            is_active: is_active !== undefined
+                ? is_active === "true" || is_active === true
+                : true,
             created_at: new Date(),
             updated_at: new Date(),
         };
@@ -223,25 +232,28 @@ backgroundImagesRouter.get("/", async (req, res) => {
         // Determine filter based on user status
         let filter = {};
         if (req.user?.new_user) {
-            // New users get the welcome wallpaper
+            // New users specifically get the welcome wallpaper
             filter = { is_welcome: true };
         }
         else {
-            // Existing users get regular wallpapers (not welcome)
-            filter = {
-                $or: [{ is_welcome: false }, { is_welcome: { $exists: false } }],
-            };
+            // Existing users can get any wallpaper, but we'll sort by newest
+            // If you want to exclude welcome ones, keep the filter, but usually you want the newest one
+            filter = {};
         }
-        const wallpaper = await collection.findOne(filter, {
-            sort: {
-                created_at: -1,
+        const wallpapers = await collection
+            .aggregate([
+            { $match: filter },
+            { $sample: { size: 1 } },
+            {
+                $project: {
+                    updated_at: 0,
+                    file_hash: 0,
+                    file_name: 0,
+                },
             },
-            projection: {
-                updated_at: 0,
-                file_hash: 0,
-                file_name: 0,
-            },
-        });
+        ])
+            .toArray();
+        const wallpaper = wallpapers[0];
         if (!wallpaper) {
             return res.status(404).json({
                 message: "Background image not found",
@@ -255,6 +267,10 @@ backgroundImagesRouter.get("/", async (req, res) => {
             overlay_color: wallpaper.overlay_color,
             overlay_opacity: wallpaper.overlay_opacity,
             is_welcome: wallpaper.is_welcome,
+            title: wallpaper.title,
+            category: wallpaper.category,
+            author_name: wallpaper.author_name,
+            author_url: wallpaper.author_url,
         });
     }
     catch (err) {

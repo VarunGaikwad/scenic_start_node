@@ -287,7 +287,8 @@ bookmarksRouter.put("/:id", async (req, res) => {
             .findOneAndUpdate({ _id: itemId, userId }, update, {
             returnDocument: "after",
         });
-        res.json(result);
+        const doc = result.value !== undefined ? result.value : result;
+        res.json(doc);
     }
     catch (err) {
         if (err.message === ERROR_CODES.INVALID_PARENT) {
